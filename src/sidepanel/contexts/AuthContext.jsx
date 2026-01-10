@@ -106,8 +106,9 @@ export function AuthProvider({ children }) {
               showToast('Signed in successfully', 'success');
               // Ensure we persist/update state
               setUser(data.session?.user ?? null);
-              setIsGuest(false);
-              chrome.storage.local.set({ isGuestMode: false });
+              chrome.storage.local.set({
+                supabaseSession: data.session
+              });
             }
             return;
           }
@@ -144,8 +145,9 @@ export function AuthProvider({ children }) {
 
               // CRITICAL: Force state update immediately
               setUser(data.session?.user ?? null);
-              setIsGuest(false);
-              chrome.storage.local.set({ isGuestMode: false });
+              chrome.storage.local.set({
+                supabaseSession: data.session
+              });
 
               showToast('Signed in successfully', 'success');
             }
