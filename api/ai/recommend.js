@@ -30,24 +30,34 @@ export default async function handler(req, res) {
     console.log('[Recommend] Processing recommendation for user:', userId);
 
     // Construct prompt for Gemini
-    const prompt = `You are a fashion stylist. Review these ${historyItems.length} items from the user's browsing history and return the ONE item ID that best matches the style/aesthetic of the current item.
+    const prompt = `You are a fashion stylist. Review these ${historyItems.length} items from the user's fashion memory and recommend the TOP 3-5 items that best complement or match the style of the current item the user is browsing.
 
-Current Item:
+Current Item the user is looking at:
 - Title: ${currentItem.title || currentItem.meta?.title || 'Unknown'}
 - Brand: ${currentItem.brand || currentItem.meta?.brand || 'Unknown'}
+- Price: ${currentItem.price || 'Unknown'}
 
-History Items:
+User's Fashion Memory (History):
 ${historyItems.slice(0, 50).map((item, idx) =>
       `${idx + 1}. ID: ${item.id}, Title: ${item.meta?.title || 'Unknown'}, Brand: ${item.meta?.brand || 'Unknown'}`
     ).join('\n')}
 
+Think like a stylist:
+1. Don't just pick identical items. Pick items that would look GOOD with the current item, or are in a similar aesthetic "vibe".
+2. Provide a short "Stylist Note" for each recommendation explaining the styling choice (e.g., "The minimalist aesthetic of these trousers perfectly balances the bold pattern of your current shirt").
+
 Respond in JSON format ONLY:
 {
-  "matchedItemId": "uuid-or-null",
-  "reasoning": "Brief explanation of why this item matches (max 20 words)"
+  "recommendations": [
+    {
+      "itemId": "uuid",
+      "reasoning": "Brief stylist note (max 20 words)"
+    },
+    ...
+  ]
 }
 
-If no good match exists, set matchedItemId to null.`;
+If no good matches exist, return an empty recommendations array.`;
 
     // Call Gemini API - CORRECT MODEL: gemini-1.5-flash
     const geminiResponse = await fetch(
@@ -75,15 +85,41 @@ If no good match exists, set matchedItemId to null.`;
     }
 
     const geminiData = await geminiResponse.json();
-    const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{"recommendations": []}';
 
-    const result = JSON.parse(responseText.trim());
+    // Robust Sanitization: strip markdown code blocks if present
+    if (responseText.includes('```')) {
+      responseText = responseText.replace(/```json\n?|```/g, '').trim();
+    }
 
-    console.log('[Recommend] Recommendation generated:', result.matchedItemId);
+    let result = { recommendations: [] };
+    try {
+      result = JSON.parse(responseText.trim());
+    } catch (parseError) {
+      console.error('[Recommend] JSON Parse Error:', parseError, 'Raw text:', responseText);
+      // Fallback to empty if Gemini returns invalid JSON
+    }
+
+    // Merge history details back into recommendations for the UI
+    const detailedRecommendations = (result.recommendations || [])
+      .map(rec => {
+        // Ensure we are matching IDs correctly (uuid string comparison)
+        const item = historyItems.find(h => String(h.id) === String(rec.itemId));
+        if (!item) return null;
+        return {
+          ...item,
+          reasoning: rec.reasoning
+        };
+      })
+      .filter(Boolean);
+
+    console.log('[Recommend] Generated', detailedRecommendations.length, 'recommendations');
 
     return res.status(200).json({
-      matchedItemId: result.matchedItemId || null,
-      reasoning: result.reasoning || 'No match found.',
+      recommendations: detailedRecommendations,
+      // Keep legacy fields for backward compatibility
+      matchedItemId: detailedRecommendations[0]?.id || null,
+      reasoning: detailedRecommendations[0]?.reasoning || 'No matches found.'
     });
   } catch (error) {
     console.error('[Recommend] Fatal Error:', error);

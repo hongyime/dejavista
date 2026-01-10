@@ -9,6 +9,7 @@ export default function MirrorTab() {
   const [currentItem, setCurrentItem] = useState(null);
   const [userPhoto, setUserPhoto] = useState(null);
   const [generatedPhoto, setGeneratedPhoto] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -234,6 +235,7 @@ export default function MirrorTab() {
       }
 
       const data = await response.json();
+      setRecommendations(data.recommendations || []);
       setRecommendation(data);
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -242,17 +244,28 @@ export default function MirrorTab() {
         console.error('[Mirror] Error getting recommendation:', error);
       }
       // Clear recommendation on error
+      setRecommendations([]);
       setRecommendation(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Get recommendations only when product changes or history loads
   useEffect(() => {
+    // Only fetch if it's a valid product and we have history
+    // crucial: we check currentItem.url to avoid re-running on every object reference change
     if (currentItem && isProduct && historyItems.length > 0) {
-      getRecommendation();
+      // Small debounce/throttle: only fetch if not already loading
+      if (!loading) {
+        getRecommendation();
+      }
+    } else if (currentItem && !isProduct) {
+      // Clear recommendations if we've moved to a non-product page
+      setRecommendations([]);
+      setRecommendation(null);
     }
-  }, [currentItem, isProduct, historyItems]);
+  }, [currentItem?.url, isProduct, historyItems.length]);
 
   // Handle Try On button click
   const handleTryOn = async () => {
@@ -478,6 +491,73 @@ export default function MirrorTab() {
           </>
         )}
       </div>
+
+      {/* Recommended from Memory Section */}
+      {isProduct && recommendations.length > 0 && (
+        <div style={{ marginTop: '24px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '16px'
+          }}>
+            <span style={{ fontSize: '18px' }}>🧠</span>
+            <h3 style={{
+              fontSize: '14px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'var(--color-text-secondary)',
+              margin: 0
+            }}>
+              Recommended from memory
+            </h3>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-3)'
+          }}>
+            {recommendations.map((rec) => (
+              <div key={rec.id} className="card card-ai" style={{ padding: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+                  {rec.meta?.image && (
+                    <img
+                      src={rec.meta.image}
+                      alt={rec.meta.title}
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: 'var(--radius-sm)',
+                        objectFit: 'cover',
+                        flexShrink: 0
+                      }}
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                    />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      marginBottom: '4px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {rec.meta.title}
+                    </h4>
+                    <div className="ai-reasoning" style={{ margin: 0, padding: '8px', fontSize: '12px' }}>
+                      {rec.reasoning}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
