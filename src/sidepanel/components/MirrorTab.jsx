@@ -253,8 +253,8 @@ export default function MirrorTab() {
 
   // Handle Try On button click
   const handleTryOn = async () => {
-    if (!currentItem || !userPhoto || !user || !VERCEL_API_URL) {
-      showToast('Need a reference photo, product, and API configuration', 'warning');
+    if (!currentItem || !currentItem.image || !userPhoto || !user || !VERCEL_API_URL) {
+      showToast('Need a product image, reference photo, and API configuration', 'warning');
       return;
     }
 
@@ -463,9 +463,9 @@ export default function MirrorTab() {
                 className="btn btn-primary"
                 style={{ width: '100%', marginTop: '16px' }}
                 onClick={handleTryOn}
-                disabled={generating}
+                disabled={generating || !currentItem?.image}
               >
-                {generating ? 'Generating...' : 'Try On'}
+                {generating ? 'Generating...' : (!currentItem?.image ? 'Image Missing' : 'Try On')}
               </button>
             )}
           </>
