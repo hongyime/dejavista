@@ -6,7 +6,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('Missing Supabase environment variables');
 }
 
-const supabase = SUPABASE_URL && SUPABASE_ANON_KEY 
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
@@ -38,13 +38,14 @@ export function AuthProvider({ children }) {
 
   const signIn = async () => {
     if (!supabase) {
-      console.error('Supabase not initialized');
+      console.error('[DejaVista] ✗ Supabase not initialized');
       return;
     }
 
     try {
       const extensionId = chrome.runtime.id;
       const redirectUrl = `https://${extensionId}.chromiumapp.org/`;
+      console.log('[DejaVista] Starting OAuth flow...', { redirectUrl });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -63,7 +64,7 @@ export function AuthProvider({ children }) {
         },
         async (redirectUrl) => {
           if (chrome.runtime.lastError) {
-            console.error('OAuth error:', chrome.runtime.lastError);
+            console.error('[DejaVista] ✗ OAuth error:', chrome.runtime.lastError);
             return;
           }
 
@@ -79,19 +80,25 @@ export function AuthProvider({ children }) {
             });
 
             if (error) {
-              console.error('Session error:', error);
+              console.error('[DejaVista] ✗ Session error:', error);
+            } else {
+              console.log('[DejaVista] ✓ Successfully signed in:', session?.user?.email);
             }
+          } else {
+            console.error('[DejaVista] ✗ No tokens in redirect URL');
           }
         }
       );
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('[DejaVista] ✗ Sign in error:', error);
     }
   };
 
   const signOut = async () => {
     if (!supabase) return;
+    console.log('[DejaVista] Signing out...');
     await supabase.auth.signOut();
+    console.log('[DejaVista] ✓ Successfully signed out');
   };
 
   return (

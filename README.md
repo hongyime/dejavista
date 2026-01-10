@@ -1,28 +1,41 @@
-# DejaView - AI Fashion Memory Extension
+# DejaVista - AI Fashion Memory Extension
 
 Chrome Extension that passively tracks viewed clothing items and uses GenAI to recommend matching outfits from browsing history.
+
+## 🚀 Quick Load (For Testers)
+
+Already have the repo? Just load the extension:
+
+1. Open Chrome → `chrome://extensions/`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select the `dist` folder
+
+That's it! The extension is ready to use.
+
+---
 
 ## Features
 
 - 🎯 **Passive Tracking:** Automatically tracks clothing items you view while browsing
-- 🤖 **AI Recommendations:** Uses Gemini 3 Pro to find matching items from your history
-- 👔 **Virtual Try-On:** Visualize outfits with Vertex AI Imagen 3
+- 🤖 **AI Recommendations:** Uses Gemini to find matching items from your history
+- 👔 **Virtual Try-On:** Visualize outfits with Vertex AI Imagen
 - 🔒 **Privacy First:** Full control over your data with incognito mode and purge options
 
 ## Quick Start
 
-1. **Set up services** (see [SETUP.md](./SETUP.md) for detailed instructions):
-   - Supabase (database & storage)
-   - Google Cloud Platform (OAuth & AI services)
-   - Vercel (API functions)
-
-2. **Install dependencies:**
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Configure environment:**
-   - Create `.env` file with your API keys (see SETUP.md)
+2. **Configure environment:**
+   - Copy `.env.example` to `.env`
+   - Fill in your Supabase and Google Cloud credentials
+
+3. **Generate icons:**
+   - Open `public/icons/generate-icons.html` in browser
+   - Download all icons and place in `public/icons/`
 
 4. **Build extension:**
    ```bash
@@ -41,30 +54,13 @@ Chrome Extension that passively tracks viewed clothing items and uses GenAI to r
 ├── src/
 │   ├── manifest.json          # Chrome extension manifest
 │   ├── sidepanel/             # React UI components
-│   │   ├── App.jsx
-│   │   ├── components/
-│   │   └── contexts/
-│   ├── content/               # Content scripts
-│   │   ├── gaze-tracker.js
-│   │   └── intent-scorer.js
+│   ├── content/               # Content scripts (gaze tracking)
 │   └── background/            # Service worker
-│       └── background.js
-├── vercel/
-│   └── api/                   # Serverless functions
-│       └── ai/
-│           ├── recommend.js
-│           └── visualize.js
-└── SETUP.md                   # Detailed setup guide
-```
-
-## Development
-
-```bash
-# Development mode
-npm run dev
-
-# Production build
-npm run build
+├── api/                       # Vercel serverless functions
+│   └── ai/
+│       ├── recommend.js       # Gemini recommendations
+│       └── visualize/         # Imagen visualization
+└── .env.example               # Environment variables template
 ```
 
 ## Tech Stack
@@ -74,15 +70,8 @@ npm run build
 - **Database:** Supabase (PostgreSQL)
 - **Storage:** Supabase Storage
 - **Auth:** Supabase Auth + Google OAuth
-- **AI:** Gemini 3 Pro, Vertex AI Imagen 3
-
-## Documentation
-
-- [SETUP.md](./SETUP.md) - Complete setup guide with all API keys
-- [BASE.md](./dejaview/BASE.md) - Architecture and technical details
-- [STYLE.md](./dejaview/STYLE.md) - Design system and styling guide
-- [TASKS.md](./dejaview/TASKS.md) - Development task checklist
+- **AI:** Gemini, Vertex AI Imagen
 
 ## License
 
-MIT License - see [LICENSE](./dejaview/LICENSE) for details
+MIT License - see [LICENSE](./LICENSE) for details

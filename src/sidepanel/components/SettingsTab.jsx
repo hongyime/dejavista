@@ -158,32 +158,13 @@ export default function SettingsTab() {
               Pause syncing while browsing
             </p>
           </div>
-          <label style={{
-            width: '44px',
-            height: '24px',
-            background: incognitoMode ? 'var(--color-accent)' : '#D1D5DB',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'background var(--duration-base)',
-          }}>
-            <input
-              type="checkbox"
-              checked={incognitoMode}
-              onChange={(e) => handleIncognitoToggle(e.target.checked)}
-              style={{ display: 'none' }}
-            />
-            <span style={{
-              position: 'absolute',
-              width: '20px',
-              height: '20px',
-              background: '#FFFFFF',
-              borderRadius: '50%',
-              top: '2px',
-              left: incognitoMode ? '22px' : '2px',
-              transition: 'left var(--duration-base)',
-            }}></span>
-          </label>
+          <button
+            className={`toggle ${incognitoMode ? 'active' : ''}`}
+            onClick={() => handleIncognitoToggle(!incognitoMode)}
+            type="button"
+          >
+            <span className="toggle-thumb" />
+          </button>
         </div>
       </div>
 

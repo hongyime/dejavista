@@ -1,6 +1,6 @@
-# DejaView Setup Guide
+# DejaVista Setup Guide
 
-This guide will walk you through setting up all the required services and API keys for DejaView.
+This guide will walk you through setting up all the required services and API keys for DejaVista.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ This guide will walk you through setting up all the required services and API ke
 1. Go to [supabase.com](https://supabase.com) and sign in
 2. Click "New Project"
 3. Fill in:
-   - **Name:** DejaView
+   - **Name:** DejaVista
    - **Database Password:** (save this securely)
    - **Region:** Choose closest to you
 4. Wait for project to be created (~2 minutes)
@@ -117,7 +117,7 @@ CREATE POLICY "Users delete own photos" ON storage.objects
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com)
 2. Click **Select a project** → **New Project**
-3. Name: `DejaView`
+3. Name: `DejaVista`
 4. Click **Create**
 
 ### 2.2 Enable APIs
@@ -129,19 +129,22 @@ CREATE POLICY "Users delete own photos" ON storage.objects
 
 ### 2.3 Create OAuth 2.0 Credentials
 
+> **Note:** You need your Extension ID before completing this step. If you don't have it yet, skip to **Section 4** first to build and load the extension, get your ID, then come back here.
+
 1. Go to **APIs & Services** → **Credentials**
 2. Click **Create Credentials** → **OAuth client ID**
 3. If prompted, configure OAuth consent screen:
    - **User Type:** External
-   - **App name:** DejaView
+   - **App name:** DejaVista
    - **Support email:** Your email
    - **Developer contact:** Your email
    - **Scopes:** email, profile, openid
 4. Create OAuth client:
-   - **Application type:** Chrome App
-   - **Name:** DejaView Extension
-5. **Important:** You'll need to add the redirect URI after building:
+   - **Application type:** Web application (NOT Chrome App)
+   - **Name:** DejaVista Extension
+5. Under **Authorized redirect URIs**, add:
    - `https://<YOUR_EXTENSION_ID>.chromiumapp.org/`
+   - Replace `<YOUR_EXTENSION_ID>` with your actual extension ID from Chrome
 6. Copy the **Client ID** → Update `src/manifest.json` with this value
 
 ### 2.4 Get Gemini API Key
@@ -192,47 +195,96 @@ VERTEX_AI_LOCATION=us-central1
 
 ### 4.1 Install Dependencies
 
+Open a terminal in the project folder and run:
+
 ```bash
 npm install
 ```
 
-### 4.2 Create Environment File
+This installs all required packages (React, Vite, Supabase client, etc.)
 
-Create `.env` in the project root:
+### 4.2 Generate Extension Icons
 
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_VERCEL_API_URL=https://your-vercel-app.vercel.app
+The extension needs PNG icons. Generate them from the included SVG:
+
+1. Open `public/icons/generate-icons.html` in your browser
+2. Click **"Download All Icons"**
+3. Move the 4 downloaded files (`icon16.png`, `icon32.png`, `icon48.png`, `icon128.png`) to `public/icons/`
+
+### 4.3 Create Environment File
+
+Copy the example and fill in your values:
+
+```bash
+cp .env.example .env
 ```
 
-### 4.3 Update Manifest
+Edit `.env` with your credentials:
 
-Edit `src/manifest.json` and replace:
-- `YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com` with your actual OAuth Client ID
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_VERCEL_API_URL=https://your-app.vercel.app
+```
 
-### 4.4 Build Extension
+> **Note:** You can leave `VITE_VERCEL_API_URL` empty initially and add it after deploying to Vercel.
+
+### 4.4 Build the Extension
+
+Run the build command:
 
 ```bash
 npm run build
 ```
 
-This creates a `dist` folder with your extension.
+This creates a `dist/` folder containing your ready-to-load extension.
+
+**Expected output:**
+```
+✓ built in ~800ms
+✓ sidepanel.html moved to dist/
+✓ Icons copied to dist/icons/
+✓ Manifest copied to dist/
+```
 
 ### 4.5 Load Extension in Chrome
 
-1. Open Chrome
-2. Go to `chrome://extensions/`
-3. Enable **Developer mode** (top right)
+1. Open Chrome browser
+2. Navigate to `chrome://extensions/`
+3. Enable **Developer mode** (toggle in top right)
 4. Click **Load unpacked**
-5. Select the `dist` folder
+5. Select the `dist` folder from your project
 
-### 4.6 Get Extension ID
+### 4.6 Get Your Extension ID
 
-1. After loading, you'll see your extension ID (e.g., `abcdefghijklmnopqrstuvwxyz123456`)
-2. Update these redirect URLs:
-   - **Supabase:** `https://abcdefghijklmnopqrstuvwxyz123456.chromiumapp.org/`
-   - **Google Cloud OAuth:** `https://abcdefghijklmnopqrstuvwxyz123456.chromiumapp.org/`
+After loading, Chrome displays your extension with a unique ID:
+
+1. Find your extension card in the list
+2. Copy the **ID** (looks like: `abcdefghijklmnopqrstuvwxyz123456`)
+3. **Go back and complete Section 2.3** if you skipped it:
+   - Add redirect URI to Google Cloud OAuth
+   - Add redirect URI to Supabase Auth settings
+
+Format: `https://<YOUR_EXTENSION_ID>.chromiumapp.org/`
+
+### 4.7 Update Manifest with OAuth Client ID
+
+Edit `src/manifest.json` and replace the placeholder:
+
+```json
+"oauth2": {
+  "client_id": "YOUR_ACTUAL_CLIENT_ID.apps.googleusercontent.com",
+  "scopes": ["openid", "email", "profile"]
+}
+```
+
+Then rebuild:
+
+```bash
+npm run build
+```
+
+Reload the extension in Chrome (click the refresh icon on your extension card).
 
 ---
 

@@ -1,5 +1,5 @@
 // Passive Gaze Tracker - Tracks images viewed for >2 seconds
-(function() {
+(function () {
   'use strict';
 
   const TIME_THRESHOLD = 2000; // 2 seconds
@@ -28,7 +28,7 @@
         };
       });
       if (sources.length > 0) {
-        const largest = sources.reduce((max, curr) => 
+        const largest = sources.reduce((max, curr) =>
           curr.width > max.width ? curr : max
         );
         return largest.url;
@@ -117,7 +117,7 @@
         // Start tracking
         if (!observedImages.has(imgId)) {
           const rect = img.getBoundingClientRect();
-          
+
           // Check size threshold
           if (rect.width < SIZE_THRESHOLD || rect.height < SIZE_THRESHOLD) {
             return;
@@ -133,7 +133,7 @@
         const record = observedImages.get(imgId);
         if (record) {
           const viewDuration = Date.now() - record.startTime;
-          
+
           if (viewDuration >= TIME_THRESHOLD) {
             // Extract data and queue
             const highResUrl = extractHighResUrl(record.img);
@@ -160,12 +160,11 @@
     threshold: 0.5, // Image must be 50% visible
   });
 
-  // Observe all images on page
   function observeImages() {
     const images = document.querySelectorAll('img');
     images.forEach(img => {
-      if (img.src && !img.dataset.dejaviewTracked) {
-        img.dataset.dejaviewTracked = 'true';
+      if (img.src && !img.dataset.dejavistaTracked) {
+        img.dataset.dejavistaTracked = 'true';
         observer.observe(img);
       }
     });

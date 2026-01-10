@@ -5,6 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 let supabase = null;
 
 async function initSupabase() {
+  console.log('[DejaVista] Initializing Supabase...');
+
   const { supabaseUrl, supabaseAnonKey } = await chrome.storage.local.get([
     'supabaseUrl',
     'supabaseAnonKey',
@@ -12,16 +14,20 @@ async function initSupabase() {
 
   if (supabaseUrl && supabaseAnonKey) {
     supabase = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('[DejaVista] ✓ Supabase initialized from storage');
   } else {
     // Try to get from manifest (if injected)
     const manifest = chrome.runtime.getManifest();
     const url = manifest.env?.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
     const key = manifest.env?.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
+
     if (url && key) {
       supabase = createClient(url, key);
       // Store for future use
       await chrome.storage.local.set({ supabaseUrl: url, supabaseAnonKey: key });
+      console.log('[DejaVista] ✓ Supabase initialized from env vars');
+    } else {
+      console.warn('[DejaVista] ⚠ Supabase credentials not found');
     }
   }
 }
@@ -41,21 +47,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleBatchItems(items, tabId) {
+  console.log(`[DejaVista] Processing ${items.length} items from tab ${tabId}...`);
+
   if (!supabase) {
-    console.error('Supabase not initialized');
+    console.error('[DejaVista] ✗ Supabase not initialized');
     return;
   }
 
   // Check incognito mode
   const { incognitoMode } = await chrome.storage.local.get(['incognitoMode']);
   if (incognitoMode) {
-    return; // Don't sync in incognito mode
+    console.log('[DejaVista] Incognito mode - skipping sync');
+    return;
   }
 
   // Get current user
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) {
-    return; // Not authenticated
+    console.log('[DejaVista] No authenticated user - skipping sync');
+    return;
   }
 
   try {
@@ -71,17 +81,19 @@ async function handleBatchItems(items, tabId) {
       .insert(itemsToInsert);
 
     if (error) {
-      console.error('Error inserting items:', error);
+      console.error('[DejaVista] ✗ Error inserting items:', error);
+    } else {
+      console.log(`[DejaVista] ✓ Successfully synced ${items.length} items`);
     }
   } catch (error) {
-    console.error('Error handling batch items:', error);
+    console.error('[DejaVista] ✗ Error handling batch items:', error);
   }
 }
 
 async function handleOpenSidePanel(product) {
   // Open side panel
   await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
-  
+
   // Store current product for Mirror tab
   await chrome.storage.local.set({ currentProduct: product });
 }
