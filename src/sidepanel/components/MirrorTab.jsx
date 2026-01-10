@@ -13,6 +13,26 @@ export default function MirrorTab() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  const loadingMessages = [
+    "Checking size table exists...",
+    "Analyzing 'Add to Cart' button...",
+    "Scanning color variations...",
+    "Extracting material details...",
+    "Consulting your fashion history..."
+  ];
+
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      setLoadingStep(0);
+      interval = setInterval(() => {
+        setLoadingStep(prev => (prev + 1) % loadingMessages.length);
+      }, 1500);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     loadCurrentTab();
@@ -225,8 +245,8 @@ export default function MirrorTab() {
     }
   }, [currentItem, historyItems]);
 
-  // Determine if the current item is a "product" (has image and price)
-  const isProduct = currentItem?.image && currentItem?.price;
+  // Determine if the current item is a "product" (has image OR price)
+  const isProduct = !!(currentItem?.image || currentItem?.price);
 
   // Handle Try On button click
   const handleTryOn = async () => {
@@ -353,7 +373,7 @@ export default function MirrorTab() {
       {/* Currently Browsing Section */}
       <div className={`card ${recommendation ? 'card-ai' : ''}`}>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-          {isProduct && currentItem.image && (
+          {currentItem.image && (
             <img
               src={currentItem.image}
               alt={currentItem.title}
@@ -381,7 +401,7 @@ export default function MirrorTab() {
             <h3 style={{ fontSize: '15px', lineHeight: '1.4', fontWeight: 600 }}>
               {currentItem.title}
             </h3>
-            {isProduct && currentItem.price && (
+            {currentItem.price && (
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', lineHeight: '1.4', fontWeight: 400 }}>
                 {currentItem.price}
               </p>
@@ -390,8 +410,24 @@ export default function MirrorTab() {
         </div>
 
         {loading && (
-          <div style={{ marginTop: '16px', textAlign: 'center' }}>
-            <div className="spinner" style={{ margin: '0 auto' }}></div>
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            backgroundColor: 'var(--color-bg-secondary)',
+            borderRadius: 'var(--radius-sm)',
+            textAlign: 'center',
+            border: '1px dashed var(--color-primary-light)'
+          }}>
+            <div className="spinner" style={{ margin: '0 auto 12px' }}></div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--color-primary)',
+              fontWeight: 500,
+              fontStyle: 'italic',
+              animation: 'fadeIn 0.5s ease-in-out'
+            }}>
+              {loadingMessages[loadingStep]}
+            </div>
           </div>
         )}
 
