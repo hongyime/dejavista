@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const INTENT_THRESHOLD = 3;
+  const INTENT_THRESHOLD = 2; // Relaxed from 3
 
   function isContextValid() {
     return !!(chrome.runtime && chrome.runtime.id);
@@ -21,8 +21,11 @@
     const addToCartTexts = [
       'add to cart',
       'add to bag',
+      'add to basket',
       'buy now',
       'purchase',
+      'checkout',
+      'order now'
     ];
     const bodyText = document.body.textContent.toLowerCase();
     addToCartTexts.forEach(text => {
@@ -43,8 +46,11 @@
       'select[name*="size" i]',
       'select[name*="Size" i]',
       '[data-testid*="size" i]',
+      '[class*="size" i] button',
+      '[class*="size" i] li',
       '.size-selector',
       '#size-selector',
+      'aria-label*="size" i'
     ];
     sizeSelectors.forEach(selector => {
       if (document.querySelector(selector)) {
@@ -54,17 +60,27 @@
     });
 
     // Check for size guide / table (+1 point)
-    if (bodyText.includes('size guide') || bodyText.includes('size table') || bodyText.includes('size chart')) {
+    if (bodyText.includes('size guide') || bodyText.includes('size table') || bodyText.includes('size chart') || bodyText.includes('fit guide')) {
       score += 1;
     }
 
     // Check for color variations (+1 point)
-    if (document.querySelector('.color-picker, [class*="color-swatch"], [id*="color-swatch"]')) {
+    if (document.querySelector('.color-picker, [class*="color-swatch"], [id*="color-swatch"], [class*="variant" i]')) {
       score += 1;
     }
 
     // Check for materials (+1 point)
-    if (bodyText.includes('material') || bodyText.includes('fabric') || bodyText.includes('composition')) {
+    if (bodyText.includes('material') || bodyText.includes('fabric') || bodyText.includes('composition') || bodyText.includes('cotton') || bodyText.includes('polyester')) {
+      score += 1;
+    }
+
+    // Check for stock status (+1 point)
+    if (bodyText.includes('in stock') || bodyText.includes('low stock') || bodyText.includes('out of stock') || bodyText.includes('available')) {
+      score += 1;
+    }
+
+    // Check for quantity (+1 point)
+    if (bodyText.includes('qty') || bodyText.includes('quantity') || document.querySelector('input[name*="qty" i], select[name*="qty" i]')) {
       score += 1;
     }
 

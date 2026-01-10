@@ -18,7 +18,7 @@ export default function MirrorTab() {
   // Determine if the current item is a "verified product"
   // Score >= 3 means we found things like Buy buttons, size selectors, materials etc.
   const isProduct = useMemo(() => {
-    return currentItem?.intentScore >= 3;
+    return currentItem?.intentScore >= 2;
   }, [currentItem]);
 
   const loadingMessages = [
