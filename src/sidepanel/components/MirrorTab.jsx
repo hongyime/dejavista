@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { VERCEL_API_URL } from '../utils/env';
 
 export default function MirrorTab() {
   const { user, supabase } = useAuth();
+  const { showToast } = useToast();
   const [currentItem, setCurrentItem] = useState(null);
   const [userPhoto, setUserPhoto] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
@@ -40,6 +42,7 @@ export default function MirrorTab() {
           url: tab.url,
           title: tab.title || 'Current Item',
           image: null,
+          isFallback: true,
         });
       }
     } catch (error) {
@@ -63,6 +66,7 @@ export default function MirrorTab() {
 
       if (error) {
         console.warn('[Mirror] Photo verify/download error:', error);
+        // showToast('Failed to load photo', 'error'); // Optional: don't spam user if just missing
         throw error;
       }
 
@@ -74,6 +78,9 @@ export default function MirrorTab() {
     } catch (error) {
       // Photo doesn't exist yet
       console.log('[Mirror] No user photo found or error:', error.message);
+      if (error.status !== 404 && error.message !== 'The resource was not found') {
+        showToast('Error loading photo', 'error');
+      }
     }
   };
 
@@ -168,6 +175,17 @@ export default function MirrorTab() {
           />
         )}
         <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          {currentItem.isFallback && (
+            <span style={{
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'var(--color-primary)',
+              fontWeight: 700
+            }}>
+              Currently Browsing
+            </span>
+          )}
           <h3 style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}>
             {currentItem.title}
           </h3>

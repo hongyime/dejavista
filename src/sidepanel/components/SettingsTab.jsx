@@ -68,6 +68,7 @@ export default function SettingsTab() {
         .upload(path, file, {
           upsert: true,
           contentType: file.type,
+          cacheControl: '0',
         });
 
       if (error) {

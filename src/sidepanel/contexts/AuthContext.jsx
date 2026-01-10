@@ -88,25 +88,67 @@ export function AuthProvider({ children }) {
             return;
           }
 
-          // Extract tokens from redirect URL
+          if (!redirectUrl) {
+            console.error('[DejaVista] ✗ No redirect URL returned');
+            return;
+          }
+
+          console.log('[DejaVista] Parsing redirect URL:', redirectUrl);
           const url = new URL(redirectUrl);
-          const accessToken = url.searchParams.get('access_token');
-          const refreshToken = url.searchParams.get('refresh_token');
+
+          // 1. Check for Authorization Code (PKCE Flow)
+          const code = url.searchParams.get('code');
+          if (code) {
+            console.log('[DejaVista] Found auth code, exchanging for session...');
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+            if (error) {
+              console.error('[DejaVista] ✗ Code exchange error:', error);
+              showToast('Auth error: ' + error.message, 'error');
+            } else {
+              console.log('[DejaVista] ✓ Successfully exchanged code for session:', data.session?.user?.email);
+              showToast('Signed in successfully', 'success');
+              // Ensure we persist/update state
+              setUser(data.session?.user ?? null);
+            }
+            return;
+          }
+
+          // 2. Check for Direct Tokens (Implicit Flow) - Query Params
+          let accessToken = url.searchParams.get('access_token');
+          let refreshToken = url.searchParams.get('refresh_token');
+
+          // 3. Fallback: Check hash fragment
+          if (!accessToken && url.hash) {
+            const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove leading '#'
+            accessToken = hashParams.get('access_token');
+            refreshToken = hashParams.get('refresh_token');
+          }
+
+          console.log('[DejaVista] Parsed tokens:', {
+            hasCode: !!code,
+            hasAccess: !!accessToken,
+            hasRefresh: !!refreshToken,
+            urlType: url.hash ? 'hash' : 'query'
+          });
 
           if (accessToken && refreshToken) {
-            const { data: { session }, error } = await supabase.auth.setSession({
+            const { data, error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
 
             if (error) {
               console.error('[DejaVista] ✗ Session error:', error);
+              showToast('Session error: ' + error.message, 'error');
             } else {
-              console.log('[DejaVista] ✓ Successfully signed in:', session?.user?.email);
+              console.log('[DejaVista] ✓ Successfully signed in:', data.session?.user?.email);
+              // setUser will be updated by onAuthStateChange, but we can also set it here effectively
               showToast('Signed in successfully', 'success');
             }
           } else {
-            console.error('[DejaVista] ✗ No tokens in redirect URL');
+            console.error('[DejaVista] ✗ No tokens/code in redirect URL:', redirectUrl);
+            showToast('Authentication failed: No tokens/code found', 'error');
           }
         }
       );
