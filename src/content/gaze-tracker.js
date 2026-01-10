@@ -105,7 +105,7 @@
   function shutdown() {
     observer.disconnect();
     mutationObserver.disconnect();
-    console.log('[DejaView] Extension context invalidated. Stopping tracker.');
+    console.log('[DejaVista] Extension context invalidated. Stopping tracker.');
   }
 
   // Debounce logic
