@@ -104,13 +104,17 @@ export default function SettingsTab() {
       if (itemsError) throw itemsError;
 
       // Delete user photo
-      await supabase.storage
+      const { error: photoError } = await supabase.storage
         .from('user_photos')
         .remove([`${user.id}/reference.jpg`]);
 
-      // Clear local cache
-      await chrome.storage.local.clear();
+      if (photoError) {
+        console.error('Error removing photo:', photoError);
+        // We continue to carry out other cleanups, but let the user know
+        showToast('Could not delete photo (check permissions)', 'error');
+      }
 
+      // Clear local cache
       await chrome.storage.local.clear();
 
       showToast('Memory purged successfully', 'success');

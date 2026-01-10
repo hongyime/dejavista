@@ -65,15 +65,12 @@ export default function MirrorTab() {
 
       if (currentProduct && tab?.url === currentProduct.url) {
         setCurrentItem(currentProduct);
-      } else if (tab?.url) {
-        // Just use tab info as placeholder
-        setCurrentItem({
-          url: tab.url,
-          title: tab.title || 'Current Item',
-          image: tab.favIconUrl || null,
-          isFallback: true,
-        });
       }
+
+      // Removed fallback: 
+      // If it's not a recognized "currentProduct" from our content script,
+      // we prefer to show the Empty State ("Ready to Shop") rather than a generic page mirror.
+      // This avoids showing giant favicons for random pages.
     } catch (error) {
       console.error('Error loading current tab:', error);
     }
@@ -106,8 +103,18 @@ export default function MirrorTab() {
       }
     } catch (error) {
       // Photo doesn't exist yet
-      console.log('[Mirror] No user photo found or error:', error.message);
-      if (error.status !== 404 && error.message !== 'The resource was not found') {
+      console.log('[Mirror] No user photo found or error:', error);
+
+      // Check for various 404 signatures
+      const is404 =
+        error.status === 404 ||
+        error.statusCode === 404 ||
+        error.status === 400 || // Supabase storage 400 = invalid path/missing
+        error.statusCode === 400 ||
+        error.code === '404' ||
+        (error.message && error.message.toLowerCase().includes('not found'));
+
+      if (!is404) {
         showToast('Error loading photo', 'error');
       }
     }
