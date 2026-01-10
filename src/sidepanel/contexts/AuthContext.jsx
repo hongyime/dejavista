@@ -84,7 +84,8 @@ export function AuthProvider({ children }) {
         },
         async (redirectUrl) => {
           if (chrome.runtime.lastError) {
-            console.error('[DejaVista] ✗ OAuth error:', chrome.runtime.lastError);
+            console.error('[DejaVista] ✗ OAuth error:', JSON.stringify(chrome.runtime.lastError, null, 2));
+            showToast(`Auth failed: ${chrome.runtime.lastError.message}`, 'error');
             return;
           }
 

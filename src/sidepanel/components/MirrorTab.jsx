@@ -16,6 +16,35 @@ export default function MirrorTab() {
     loadCurrentTab();
     loadUserPhoto();
     loadHistory();
+
+    // Listen for tab updates (navigation)
+    const handleTabUpdated = (tabId, changeInfo, tab) => {
+      if (tab.active && changeInfo.status === 'loading') {
+        loadCurrentTab();
+      }
+    };
+
+    // Listen for tab switching
+    const handleTabActivated = () => {
+      loadCurrentTab();
+    };
+
+    // Listen for storage updates (e.g. from FAB)
+    const handleStorageChanged = (changes) => {
+      if (changes.currentProduct) {
+        loadCurrentTab();
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(handleTabUpdated);
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+    chrome.storage.onChanged.addListener(handleStorageChanged);
+
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabUpdated);
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+      chrome.storage.onChanged.removeListener(handleStorageChanged);
+    };
   }, [user, supabase]);
 
   const loadCurrentTab = async () => {
@@ -41,7 +70,7 @@ export default function MirrorTab() {
         setCurrentItem({
           url: tab.url,
           title: tab.title || 'Current Item',
-          image: null,
+          image: tab.favIconUrl || null,
           isFallback: true,
         });
       }
