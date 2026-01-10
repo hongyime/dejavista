@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 
 export default function SettingsTab() {
-  const { user, supabase, signOut } = useAuth();
+  const { user, supabase, signIn, signOut } = useAuth();
   const { showToast } = useToast();
   const [incognitoMode, setIncognitoMode] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -51,9 +51,9 @@ export default function SettingsTab() {
       name: file.name
     });
 
-    showToast('Uploading photo...', 'info');
-
     setUploading(true);
+    // showToast('Uploading...', 'info'); // UI spinner is enough
+
     try {
       // Preview
       const previewUrl = URL.createObjectURL(file);
@@ -81,7 +81,7 @@ export default function SettingsTab() {
     } catch (error) {
       console.error('Error uploading photo:', error);
       showToast('Failed to upload photo', 'error');
-      setPhotoPreview(null);
+      // Revert preview if failed? Optional.
     } finally {
       setUploading(false);
     }
@@ -127,41 +127,67 @@ export default function SettingsTab() {
         <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
           Account
         </h3>
-        <p style={{ color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
-          {user?.email}
-        </p>
-        <button className="btn btn-secondary" onClick={signOut}>
-          Sign Out
-        </button>
+        {user ? (
+          <>
+            <p style={{ color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
+              {user.email}
+            </p>
+            <button className="btn btn-secondary" onClick={signOut}>
+              Sign Out
+            </button>
+          </>
+        ) : (
+          <>
+            <p style={{ color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
+              Sign in to sync your wardrobe and preferences.
+            </p>
+            <button className="btn btn-primary" onClick={signIn} style={{ width: '100%' }}>
+              Sign In with Google
+            </button>
+          </>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: '16px' }}>
         <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
           Reference Photo
         </h3>
-        {photoPreview && (
-          <img
-            src={photoPreview}
-            alt="Your reference"
-            className="product-image"
-            style={{ marginBottom: '12px' }}
-            referrerPolicy="no-referrer"
-          />
-        )}
-        <label className="btn btn-secondary" style={{ display: 'block', textAlign: 'center' }}>
-          {photoPreview ? 'Change Photo' : 'Upload Photo'}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handlePhotoUpload}
-            disabled={uploading}
-            style={{ display: 'none' }}
-          />
-        </label>
-        {uploading && (
-          <div style={{ textAlign: 'center', marginTop: '8px' }}>
-            <div className="spinner" style={{ margin: '0 auto' }}></div>
-          </div>
+
+        {/* Only show photo UI if logged in */}
+        {!user ? (
+          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+            Please sign in to upload a reference photo.
+          </p>
+        ) : (
+          <>
+            {photoPreview && (
+              <img
+                src={photoPreview}
+                alt="Your reference"
+                className="product-image"
+                style={{ marginBottom: '12px', opacity: uploading ? 0.5 : 1 }}
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <label
+              className={`btn btn-secondary ${uploading ? 'disabled' : ''}`}
+              style={{ display: 'block', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer' }}
+            >
+              {uploading ? 'Uploading...' : (photoPreview ? 'Change Photo' : 'Upload Photo')}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+                style={{ display: 'none' }}
+              />
+            </label>
+            {uploading && (
+              <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                <div className="spinner" style={{ margin: '0 auto' }}></div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
