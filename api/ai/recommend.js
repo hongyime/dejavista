@@ -71,9 +71,6 @@ If nothing fits well, set recommendedItemId to null.`;
           contents: [{
             parts: [{ text: prompt }],
           }],
-          generationConfig: {
-            response_mime_type: "application/json"
-          }
         }),
       }
     );
