@@ -28,6 +28,8 @@ export default async function handler(req, res) {
 
   try {
     console.log('[Recommend] Processing recommendation for user:', userId);
+    console.log('[Recommend] History items count:', historyItems.length);
+    console.log('[Recommend] Current item title:', currentItem.title || currentItem.meta?.title);
 
     // Construct prompt for Gemini
     const prompt = `You are an expert high-end fashion stylist. Your goal is to curate exactly ONE recommendation from the user's "Fashion Memory" that perfectly complements the item they are currently browsing.
@@ -77,9 +79,15 @@ If nothing fits well, set recommendedItemId to null.`;
     );
 
     if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('[Recommend] Gemini API Error:', errorText);
-      throw new Error(`Gemini API error: ${geminiResponse.status}`);
+      let errorText = '';
+      try {
+        const errJson = await geminiResponse.json();
+        errorText = JSON.stringify(errJson);
+      } catch (e) {
+        errorText = await geminiResponse.text();
+      }
+      console.error('[Recommend] Gemini API Error Response:', errorText);
+      throw new Error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
     }
 
     const geminiData = await geminiResponse.json();

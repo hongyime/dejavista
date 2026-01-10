@@ -231,7 +231,15 @@ export default function MirrorTab() {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
+        let details = '';
+        try {
+          const errData = await response.json();
+          details = errData.details || errData.error || '';
+        } catch (e) {
+          details = await response.text();
+        }
+        console.error('[Mirror] API Error Details:', details);
+        throw new Error(`API returned ${response.status}: ${details}`);
       }
 
       const data = await response.json();
