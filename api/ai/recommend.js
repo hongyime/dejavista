@@ -30,34 +30,37 @@ export default async function handler(req, res) {
     console.log('[Recommend] Processing recommendation for user:', userId);
 
     // Construct prompt for Gemini
-    const prompt = `You are a fashion stylist. Review these ${historyItems.length} items from the user's fashion memory and recommend the TOP 3-5 items that best complement or match the style of the current item the user is browsing.
+    const prompt = `You are an expert high-end fashion stylist. Your goal is to curate a list of local recommendations from the user's "Fashion Memory" that perfectly complement the item they are currently browsing.
 
-Current Item the user is looking at:
+Current Item:
 - Title: ${currentItem.title || currentItem.meta?.title || 'Unknown'}
 - Brand: ${currentItem.brand || currentItem.meta?.brand || 'Unknown'}
 - Price: ${currentItem.price || 'Unknown'}
+- Description: ${currentItem.description || currentItem.meta?.description || 'N/A'}
 
 User's Fashion Memory (History):
 ${historyItems.slice(0, 50).map((item, idx) =>
-      `${idx + 1}. ID: ${item.id}, Title: ${item.meta?.title || 'Unknown'}, Brand: ${item.meta?.brand || 'Unknown'}`
+      `${idx + 1}. ID: ${item.id}, Title: ${item.meta?.title || 'Unknown'}, Brand: ${item.meta?.brand || 'Unknown'}, Desc: ${item.meta?.description || 'N/A'}`
     ).join('\n')}
 
-Think like a stylist:
-1. Don't just pick identical items. Pick items that would look GOOD with the current item, or are in a similar aesthetic "vibe".
-2. Provide a short "Stylist Note" for each recommendation explaining the styling choice (e.g., "The minimalist aesthetic of these trousers perfectly balances the bold pattern of your current shirt").
+STYLING PRINCIPLES TO FOLLOW:
+1. Color Coordination: Use color theory (complementary, analogous, or monochrome) to match items.
+2. Occasion Matching: If the current item is formal, recommend formal accessories or footwear.
+3. Texture & Fabric: Pair similar or complementary textures (e.g., silk with wool, denim with leather).
+4. Completism: Try to recommend items that "complete the look" (e.g., if browsing a top, recommend bottoms or bags).
 
 Respond in JSON format ONLY:
 {
   "recommendations": [
     {
       "itemId": "uuid",
-      "reasoning": "Brief stylist note (max 20 words)"
+      "reasoning": "A sophisticated stylist note explaining the fit/style synergy (max 15 words)"
     },
     ...
   ]
 }
 
-If no good matches exist, return an empty recommendations array.`;
+Only return recommendations if they truly work. If nothing fits well, return an empty array.`;
 
     // Call Gemini API - CORRECT MODEL: gemini-1.5-flash
     const geminiResponse = await fetch(

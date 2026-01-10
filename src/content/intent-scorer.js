@@ -93,6 +93,7 @@
       price: null,
       brand: null,
       image: null,
+      description: null,
     };
 
     // Title
@@ -137,6 +138,21 @@
         meta.image = mainImg.dataset.zoomImage || mainImg.dataset.mainImage || mainImg.srcset?.split(',')[0]?.trim() || mainImg.src;
       }
     }
+
+    // Category/Description (Improved Detection)
+    const descriptionSelectors = [
+      'meta[property="og:description"]',
+      'meta[name="description"]',
+      'meta[property="product:brand"]',
+      'meta[name="keywords"]'
+    ];
+    for (const selector of descriptionSelectors) {
+      const el = document.querySelector(selector);
+      if (el && el.content) {
+        meta.description = (meta.description || '') + ' ' + el.content;
+      }
+    }
+    meta.description = meta.description?.trim();
 
     // Verification Score
     meta.intentScore = calculateIntentScore();
