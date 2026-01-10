@@ -95,36 +95,37 @@ async function handleBatchItems(items, tabId) {
 }
 
 async function handleOpenSidePanel(product, windowId) {
-  // Store product first
-  await chrome.storage.local.set({ currentProduct: product });
+  // CRITICAL: Call sidePanel.open() IMMEDIATELY to preserve user gesture.
+  // Do NOT wait for storage or other async ops.
+  const openPromise = chrome.sidePanel.open({ windowId });
 
-  if (!windowId) {
-    console.error('[DejaVista] No windowId provided for side panel open');
-    return;
-  }
+  // Update storage in parallel
+  const storagePromise = chrome.storage.local.set({ currentProduct: product });
 
   try {
-    // Try to open side panel
-    await chrome.sidePanel.open({ windowId });
+    await openPromise;
   } catch (error) {
-    // Fallback: Show badge if open fails (e.g., if gesture expired)
+    // Fallback: Show badge if open fails
     console.log('[DejaVista] Side panel open failed, showing badge:', error);
     await chrome.action.setBadgeText({ text: '!' });
     await chrome.action.setBadgeBackgroundColor({ color: '#D44D5C' }); // Coral color
   }
+
+  await storagePromise;
 }
 
 // Listen for side panel action click
-chrome.action.onClicked.addListener(async (tab) => {
-  // Clear badge
-  await chrome.action.setBadgeText({ text: '' });
-
-  // Open side panel using tab.windowId directly
+chrome.action.onClicked.addListener((tab) => {
+  // CRITICAL: Call sidePanel.open() IMMEDIATELY.
+  // We cannot mark this function as 'async' and await things before the open call.
   if (tab.windowId) {
-    try {
-      await chrome.sidePanel.open({ windowId: tab.windowId });
-    } catch (error) {
-      console.error('[DejaVista] Failed to open side panel on click:', error);
-    }
+    chrome.sidePanel.open({ windowId: tab.windowId })
+      .then(() => {
+        // Clear badge after open
+        chrome.action.setBadgeText({ text: '' });
+      })
+      .catch((error) => {
+        console.error('[DejaVista] Failed to open side panel on click:', error);
+      });
   }
 });
