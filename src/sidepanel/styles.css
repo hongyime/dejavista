@@ -1,0 +1,326 @@
+/* Design System Variables */
+:root {
+  --color-base: #FFFFFF;
+  --color-accent: #6366F1;
+  --color-surface: #F3F4F6;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-ai: #312E81;
+  --color-border: #E5E7EB;
+  
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-ai: 0 0 0 4px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15);
+  
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background: var(--color-base);
+}
+
+/* Typography Scale */
+h1 {
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 20px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+h4 {
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+small {
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.micro {
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.app {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Navigation */
+.navigation {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-base);
+  height: 48px;
+}
+
+.nav-tab {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-in-out);
+}
+
+.nav-tab:hover {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-border);
+}
+
+.nav-tab.active {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-accent);
+}
+
+/* Tab Content */
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+/* Closet Tab Background */
+.tab-content.closet {
+  background: var(--color-surface);
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: #4F46E5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.btn-primary:disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: var(--color-base);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  background: #F9FAFB;
+  border-color: #D1D5DB;
+}
+
+.btn-destructive {
+  background: var(--color-base);
+  color: #DC2626;
+  border: 1px solid #FCA5A5;
+}
+
+.btn-destructive:hover {
+  background: #FEF2F2;
+  border-color: #EF4444;
+}
+
+/* Cards */
+.card {
+  background: var(--color-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-base) var(--ease-out);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: #D1D5DB;
+}
+
+.card-ai {
+  background: linear-gradient(135deg, #FFFFFF 0%, #F9FAFB 100%);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-ai);
+}
+
+/* Product Image */
+.product-image {
+  width: 100%;
+  aspect-ratio: 3/4;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #F9FAFB;
+  object-fit: cover;
+  display: block;
+}
+
+/* AI Reasoning */
+.ai-reasoning {
+  color: var(--color-text-ai);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 500;
+  font-style: italic;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid var(--color-accent);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  color: var(--color-text-secondary);
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  color: #D1D5DB;
+  margin-bottom: var(--space-4);
+}
+
+.empty-state h3 {
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.empty-state p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Focus States */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Skeleton Loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    #E5E7EB 50%,
+    var(--color-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Pulse Animation */
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}

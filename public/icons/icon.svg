@@ -1,0 +1,13 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="64" fill="#6366F1"/>
+  
+  <!-- Stylized hanger/clothing icon -->
+  <path d="M64 20 L44 35 L44 50 L64 65 L84 50 L84 35 Z" fill="white" opacity="0.9"/>
+  <path d="M64 65 L44 80 L44 95 L64 108 L84 95 L84 80 Z" fill="white" opacity="0.7"/>
+  
+  <!-- AI sparkle/star -->
+  <circle cx="90" cy="38" r="6" fill="white"/>
+  <circle cx="38" cy="38" r="4" fill="white" opacity="0.8"/>
+  <circle cx="90" cy="90" r="4" fill="white" opacity="0.8"/>
+</svg>
