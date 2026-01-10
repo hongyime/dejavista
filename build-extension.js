@@ -1,5 +1,5 @@
 // Build script to copy manifest.json and icons to dist
-import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync, statSync, renameSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,6 +19,14 @@ writeFileSync(
   resolve(distDir, 'manifest.json'),
   JSON.stringify(manifest, null, 2)
 );
+
+// Move sidepanel.html to root of dist (manifest expects it there)
+const sidepanelHtmlSrc = resolve(distDir, 'src/sidepanel/sidepanel.html');
+const sidepanelHtmlDest = resolve(distDir, 'sidepanel.html');
+if (existsSync(sidepanelHtmlSrc)) {
+  copyFileSync(sidepanelHtmlSrc, sidepanelHtmlDest);
+  console.log('✓ sidepanel.html moved to dist/');
+}
 
 // Copy icons if they exist
 const publicIconsDir = resolve(__dirname, 'public/icons');

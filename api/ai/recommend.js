@@ -7,6 +7,11 @@ const geminiApiKey = process.env.GEMINI_API_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -15,6 +20,10 @@ export default async function handler(req, res) {
 
   if (!currentItem || !historyItems || !userId) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  if (!geminiApiKey) {
+    return res.status(500).json({ error: 'Gemini API key not configured' });
   }
 
   try {
@@ -56,7 +65,8 @@ If no good match exists, set matchedItemId to null.`;
     );
 
     if (!geminiResponse.ok) {
-      throw new Error(`Gemini API error: ${geminiResponse.statusText}`);
+      const errorText = await geminiResponse.text();
+      throw new Error(`Gemini API error: ${geminiResponse.statusText} - ${errorText}`);
     }
 
     const geminiData = await geminiResponse.json();

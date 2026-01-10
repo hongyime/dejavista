@@ -9,6 +9,11 @@ const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -19,13 +24,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  if (!projectId) {
+    return res.status(500).json({ error: 'Google Cloud Project ID not configured' });
+  }
+
   try {
     // Generate job ID
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Store job as processing (in a real app, use Redis or Supabase table)
-    // For now, we'll return immediately and handle async processing
-    
     // Download user photo from Supabase Storage
     const photoPath = userPhotoUrl.split('/').slice(-2).join('/'); // Extract path
     const { data: photoData, error: photoError } = await supabase.storage

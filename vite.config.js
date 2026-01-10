@@ -36,6 +36,9 @@ export default defineConfig(({ mode }) => {
             if (assetInfo.name === 'sidepanel.html') {
               return 'sidepanel.html';
             }
+            if (assetInfo.name && assetInfo.name.endsWith('.html')) {
+              return '[name].[ext]';
+            }
             return 'assets/[name].[ext]';
           },
         },
