@@ -91,14 +91,26 @@ async function handleBatchItems(items, tabId) {
 }
 
 async function handleOpenSidePanel(product) {
-  // Open side panel
-  await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
-
-  // Store current product for Mirror tab
+  // Store product first
   await chrome.storage.local.set({ currentProduct: product });
+
+  try {
+    // Try to open side panel (works if triggered by user click on FAB)
+    await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
+  } catch (error) {
+    // Fallback: Show badge if open fails (e.g., if gesture expired)
+    console.log('[DejaVista] Side panel open failed (expected if no gesture), showing badge');
+    await chrome.action.setBadgeText({ text: '!' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#D44D5C' }); // Coral color
+  }
 }
 
 // Listen for side panel action click
+// Listen for side panel action click
 chrome.action.onClicked.addListener(async () => {
+  // Clear badge
+  await chrome.action.setBadgeText({ text: '' });
+
+  // Open side panel (allowed here because it's a user gesture)
   await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
 });

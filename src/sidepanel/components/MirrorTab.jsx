@@ -18,10 +18,24 @@ export default function MirrorTab() {
 
   const loadCurrentTab = async () => {
     try {
+      // 1. Try to get rich product data from storage (set by FAB click)
+      const { currentProduct } = await chrome.storage.local.get(['currentProduct']);
+
+      if (currentProduct && currentProduct.url === window.location.href) {
+        // Keep it if it matches current page (or if extension context, check tab match)
+        // Note: Inside side panel, window.location is the extension's URL.
+        // Effectively we just trust storage for the "Actively Viewed" item.
+        setCurrentItem(currentProduct);
+        return;
+      }
+
+      // 2. Fallback: Check active tab URL
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.url) {
-        // Extract product info from current tab
-        // This is a placeholder - you'll need to implement actual extraction
+
+      if (currentProduct && tab?.url === currentProduct.url) {
+        setCurrentItem(currentProduct);
+      } else if (tab?.url) {
+        // Just use tab info as placeholder
         setCurrentItem({
           url: tab.url,
           title: tab.title || 'Current Item',
@@ -102,7 +116,12 @@ export default function MirrorTab() {
   if (!currentItem) {
     return (
       <div className="empty-state">
-        <p>Navigate to a product page to see recommendations</p>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🛍️</div>
+        <h3>Ready to Shop</h3>
+        <p>Visit a product page to see AI recommendations.</p>
+        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
+          Look for the "View Match" button on fashion sites.
+        </p>
       </div>
     );
   }

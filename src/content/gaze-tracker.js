@@ -163,9 +163,17 @@
   function observeImages() {
     const images = document.querySelectorAll('img');
     images.forEach(img => {
+      // optimization: skip already tracked or very small images (likely icons/tracking pixels) without layout thrashing
+      // We check naturalWidth if available, otherwise just observe and filter later
       if (img.src && !img.dataset.dejavistaTracked) {
-        img.dataset.dejavistaTracked = 'true';
-        observer.observe(img);
+        if (img.naturalWidth > 50 && img.naturalHeight > 50) {
+          img.dataset.dejavistaTracked = 'true';
+          observer.observe(img);
+        } else if (!img.complete) {
+          // If not loaded, observe anyway and filter in callback
+          img.dataset.dejavistaTracked = 'true';
+          observer.observe(img);
+        }
       }
     });
   }
