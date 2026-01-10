@@ -40,7 +40,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleBatchItems(message.items, sender.tab?.id);
     sendResponse({ success: true });
   } else if (message.type === 'OPEN_SIDE_PANEL') {
-    handleOpenSidePanel(message.product);
+    // Pass windowId directly to preserve user gesture
+    const windowId = sender.tab?.windowId;
+    if (windowId) {
+      handleOpenSidePanel(message.product, windowId);
+    }
     sendResponse({ success: true });
   }
   return true; // Keep channel open for async response
@@ -90,27 +94,37 @@ async function handleBatchItems(items, tabId) {
   }
 }
 
-async function handleOpenSidePanel(product) {
+async function handleOpenSidePanel(product, windowId) {
   // Store product first
   await chrome.storage.local.set({ currentProduct: product });
 
+  if (!windowId) {
+    console.error('[DejaVista] No windowId provided for side panel open');
+    return;
+  }
+
   try {
-    // Try to open side panel (works if triggered by user click on FAB)
-    await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
+    // Try to open side panel
+    await chrome.sidePanel.open({ windowId });
   } catch (error) {
     // Fallback: Show badge if open fails (e.g., if gesture expired)
-    console.log('[DejaVista] Side panel open failed (expected if no gesture), showing badge');
+    console.log('[DejaVista] Side panel open failed, showing badge:', error);
     await chrome.action.setBadgeText({ text: '!' });
     await chrome.action.setBadgeBackgroundColor({ color: '#D44D5C' }); // Coral color
   }
 }
 
 // Listen for side panel action click
-// Listen for side panel action click
-chrome.action.onClicked.addListener(async () => {
+chrome.action.onClicked.addListener(async (tab) => {
   // Clear badge
   await chrome.action.setBadgeText({ text: '' });
 
-  // Open side panel (allowed here because it's a user gesture)
-  await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
+  // Open side panel using tab.windowId directly
+  if (tab.windowId) {
+    try {
+      await chrome.sidePanel.open({ windowId: tab.windowId });
+    } catch (error) {
+      console.error('[DejaVista] Failed to open side panel on click:', error);
+    }
+  }
 });
