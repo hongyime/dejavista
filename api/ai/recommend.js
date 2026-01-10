@@ -67,43 +67,45 @@ Respond in JSON format ONLY:
 
 If nothing fits or history is empty, set recommendedItemId to null.`;
 
-    // Call Gemini API - Using base model name and v1beta as per guide
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }],
-          }],
-        }),
-      }
-    );
+    // Initialize Vertex AI
+    const project = process.env.GOOGLE_CLOUD_PROJECT_ID || 'gen-lang-client-0209105478';
+    const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
 
-    if (!geminiResponse.ok) {
-      let errorText = '';
+    // Check for credentials
+    let authOptions = {};
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       try {
-        const errJson = await geminiResponse.json();
-        errorText = JSON.stringify(errJson);
+        const creds = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+        authOptions = { credentials: creds };
       } catch (e) {
-        errorText = await geminiResponse.text();
+        console.warn('[Recommend] Warning: GOOGLE_APPLICATION_CREDENTIALS parsing failed');
       }
-      console.error('[Recommend] Gemini API Error Response:', errorText);
-      throw new Error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
     }
 
-    const geminiData = await geminiResponse.json();
-    let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const { VertexAI } = await import('@google-cloud/vertexai');
+    const vertexAI = new VertexAI({ project, location, ...authOptions });
+    const model = vertexAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        maxOutputTokens: 256,
+        temperature: 0.7,
+      }
+    });
+
+    console.log('[Recommend] Calling Vertex AI...');
+    const result_vertex = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }]
+    });
+
+    const v_response = await result_vertex.response;
+    let responseText = v_response.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     if (!responseText) {
-      console.log('[Recommend] Empty response from Gemini');
+      console.log('[Recommend] Empty response from Vertex AI');
       return res.status(200).json({ recommendation: null });
     }
 
-    // Defensive JSON Extraction (Regex to find anything between { and })
+    // Defensive JSON Extraction
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       responseText = jsonMatch[0];
@@ -113,14 +115,10 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
     try {
       result = JSON.parse(responseText.trim());
     } catch (parseError) {
-      console.error('[Recommend] JSON Parse Error:', parseError, 'Raw text:', responseText);
-      // Try one more time to clean up markdown if present
+      console.error('[Recommend] JSON Parse Error:', parseError, 'Raw:', responseText);
+      // Clean markdown
       const cleaned = responseText.replace(/```json\n?|```/g, '').trim();
-      try {
-        result = JSON.parse(cleaned);
-      } catch (e2) {
-        console.error('[Recommend] Final JSON Parse Attempt Failed');
-      }
+      try { result = JSON.parse(cleaned); } catch (e2) { }
     }
 
     // Merge history details for the single recommendation

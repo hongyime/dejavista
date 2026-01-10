@@ -39,40 +39,51 @@ export default async function handler(req, res) {
       "missingParts": ["face", "arms", "legs"] // include only what is missing
     }`;
 
+        // Initialize Vertex AI
+        const project = process.env.GOOGLE_CLOUD_PROJECT_ID || 'gen-lang-client-0209105478';
+        const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
+
+        let authOptions = {};
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            try {
+                const creds = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+                authOptions = { credentials: creds };
+            } catch (e) {
+                console.warn('[Validate] Warning: GOOGLE_APPLICATION_CREDENTIALS parsing failed');
+            }
+        }
+
+        const { VertexAI } = await import('@google-cloud/vertexai');
+        const vertexAI = new VertexAI({ project, location, ...authOptions });
+        const model = vertexAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+                maxOutputTokens: 512,
+                temperature: 0.1, // Stricter for validation
+            }
+        });
+
         // Prepare image for Gemini (remove data:image/xxx;base64, prefix if present)
         const base64Data = image.split(',')[1] || image;
 
-        const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            {
-                                inline_data: {
-                                    mime_type: "image/jpeg",
-                                    data: base64Data
-                                }
-                            }
-                        ],
-                    }],
-                }),
-            }
-        );
+        console.log('[Validate] Calling Vertex AI Vision...');
+        const result_vertex = await model.generateContent({
+            contents: [{
+                role: 'user',
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: "image/jpeg",
+                            data: base64Data
+                        }
+                    }
+                ]
+            }]
+        });
 
-        if (!geminiResponse.ok) {
-            const errorText = await geminiResponse.text();
-            console.error('[Validate] Gemini API Error:', errorText);
-            throw new Error(`Gemini API error: ${geminiResponse.status}`);
-        }
-
-        const geminiData = await geminiResponse.json();
-        let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const v_response = await result_vertex.response;
+        let responseText = v_response.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
         // Robust JSON extraction
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
