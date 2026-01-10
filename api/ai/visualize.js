@@ -32,23 +32,54 @@ export default async function handler(req, res) {
     // Generate job ID
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+    console.log('[Visualize] Processing request for user:', userPhotoUrl.split('/')[0]);
+
     // Download user photo from Supabase Storage
-    const photoPath = userPhotoUrl.split('/').slice(-2).join('/'); // Extract path
-    const { data: photoData, error: photoError } = await supabase.storage
+    const photoPath = userPhotoUrl.split('/').slice(-2).join('/'); // userId/reference.jpg
+    const { data: photoBlob, error: photoError } = await supabase.storage
       .from('user_photos')
       .download(photoPath);
 
-    if (photoError) throw photoError;
+    if (photoError) {
+      console.error('[Visualize] Supabase download error:', photoError);
+      throw new Error(`Failed to download user photo: ${photoError.message}`);
+    }
 
-    // Download item images
-    const itemImages = await Promise.all(
-      items.map(async (item) => {
-        const response = await fetch(item.url, {
-          headers: { 'Referer': item.url },
-        });
-        return await response.arrayBuffer();
+    // Convert Blob to Buffer for processing
+    const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
+
+    // Download and validate item images
+    const itemReferenceImages = await Promise.all(
+      items.map(async (item, idx) => {
+        if (!item.url) {
+          console.warn(`[Visualize] Item ${idx} has no URL, skipping`);
+          return null;
+        }
+
+        try {
+          const response = await fetch(item.url, {
+            headers: { 'Referer': item.url },
+          });
+          if (!response.ok) throw new Error(`Status ${response.status}`);
+
+          const buffer = await response.arrayBuffer();
+          const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+          return {
+            inlineData: {
+              data: Buffer.from(buffer).toString('base64'),
+              mimeType: contentType,
+            }
+          };
+        } catch (err) {
+          console.error(`[Visualize] Failed to fetch item image from ${item.url}:`, err);
+          return null;
+        }
       })
     );
+
+    // Filter out nulls
+    const validReferences = itemReferenceImages.filter(img => img !== null);
 
     // Initialize Vertex AI
     const vertexAI = new VertexAI({ project: projectId, location });
@@ -56,33 +87,37 @@ export default async function handler(req, res) {
       model: 'imagen-3.0-generate-002',
     });
 
-    // Construct prompt with explicit variable mapping
-    const prompt = `Role: You are an expert AI Fashion Compositor and Virtual Try-On Specialist. 
-Your goal is to seamlessly integrate specific clothing items onto a target user while maintaining absolute identity preservation.
+    // Construct prompt
+    const prompt = `Role: Expert AI Fashion Compositor.
+Seamlessly integrate the clothing item(s) from the provided Reference Images onto the Target Model while maintaining 100% identity preservation.
 
-Inputs:
-- Target Model: The attached reference photo (user.id: ${userPhotoUrl.split('/')[0]})
-- Garments to Apply:
-${items.map((item, idx) => `  - Garment ${idx + 1} [${item.meta?.title || 'Clothing Item'}]: ${item.url}`).join('\n')}
+Instructions:
+1. Preserve the face, pose, and background of the Target Model exactly.
+2. Apply the garment(s) naturally to the body following physics and draping.
+3. Match lighting and shadows of the original scene.
 
-Execution Guidelines:
-1. Identity & Pose Preservation (CRITICAL): The user's facial features, skin tone, body type, pose, and background must remain 100% pixel-perfect to the original Target Model image. Do not alter the subject's physical traits or environment.
-2. Garment Transfer: Replace the user's existing clothing in the Target Model with the garments listed above. Ensure Garment 1 and any subsequent garments are fitted naturally onto the body.
-3. Physics & Draping: Ensure the clothing follows the contour of the body. Apply realistic gravity, folds, wrinkles, and tension points based on the pose in the Target Model.
-4. Lighting & Integration: Analyze the lighting source, color temperature, and shadows of the Target Model. Apply these exact lighting conditions to the new garments so they look optically bonded to the scene.
-5. Output Quality: Photorealistic, 8k resolution, high fidelity texture, commercial fashion photography style.`;
+Target: Attached reference image
+Garments: ${items.map(i => i.meta?.title || 'Clothing').join(', ')}`;
 
-    // Generate image using Vertex AI Imagen
-    const result = await model.generateImages({
+    // Generate image using Vertex AI Imagen 3
+    console.log('[Visualize] Generation request sent');
+
+    const generationResult = await model.generateImages({
       prompt,
-      image: photoData, // This is the 'Target Model' image passed to the model
+      image: {
+        inlineData: {
+          data: photoBuffer.toString('base64'),
+          mimeType: photoBlob.type || 'image/jpeg',
+        }
+      },
+      // Note: In some SDK versions, person_reference might be needed
+      // but 'image' is standard for image-to-image/reference for Imagen.
       numberOfImages: 1,
       aspectRatio: '9:16',
       addWatermark: false
     });
 
-    // Store result (in production, save to storage and return URL)
-    const imageUrl = result.images?.[0]?.url || '';
+    const imageUrl = generationResult.images?.[0]?.url || '';
 
     return res.status(200).json({
       jobId,
