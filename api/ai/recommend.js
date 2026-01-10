@@ -29,14 +29,21 @@ export default async function handler(req, res) {
   console.log('[Recommend] Credentials check:', {
     hasGeminiKey: !!geminiApiKey,
     hasVertexCreds: hasVertexAICreds,
-    geminiKeyLength: geminiApiKey?.length || 0
+    geminiKeyLength: geminiApiKey?.length || 0,
+    geminiKeyPrefix: geminiApiKey ? geminiApiKey.substring(0, 10) + '...' : 'missing'
   });
   
-  if (!geminiApiKey && !hasVertexAICreds) {
-    return res.status(500).json({ 
-      error: 'No AI credentials configured',
-      details: 'Please set either GEMINI_API_KEY or GOOGLE_APPLICATION_CREDENTIALS in Vercel environment variables'
-    });
+  // Prefer GEMINI_API_KEY - fail fast if it's missing
+  if (!geminiApiKey) {
+    if (hasVertexAICreds) {
+      console.warn('[Recommend] GEMINI_API_KEY not set, falling back to Vertex AI (not recommended)');
+    } else {
+      return res.status(500).json({ 
+        error: 'GEMINI_API_KEY not configured',
+        details: 'Please set GEMINI_API_KEY in Vercel environment variables',
+        instructions: '1. Go to Vercel Dashboard > Settings > Environment Variables\n2. Add GEMINI_API_KEY with your Google AI Studio API key\n3. Get your key from: https://aistudio.google.com/apikey'
+      });
+    }
   }
 
   try {
