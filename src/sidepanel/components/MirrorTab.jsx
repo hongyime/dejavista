@@ -53,24 +53,40 @@ export default function MirrorTab() {
       const { currentProduct } = await chrome.storage.local.get(['currentProduct']);
 
       if (currentProduct && currentProduct.url === window.location.href) {
-        // Keep it if it matches current page (or if extension context, check tab match)
-        // Note: Inside side panel, window.location is the extension's URL.
-        // Effectively we just trust storage for the "Actively Viewed" item.
         setCurrentItem(currentProduct);
         return;
       }
 
-      // 2. Fallback: Check active tab URL
+      // 2. Reuse currentProduct if it matches the active tab's URL (even if window.location differs)
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       if (currentProduct && tab?.url === currentProduct.url) {
         setCurrentItem(currentProduct);
+        return;
       }
 
-      // Removed fallback: 
-      // If it's not a recognized "currentProduct" from our content script,
-      // we prefer to show the Empty State ("Ready to Shop") rather than a generic page mirror.
-      // This avoids showing giant favicons for random pages.
+      // 3. Active Detection: Ask the tab for metadata
+      if (tab?.id && tab.url && !tab.url.startsWith('chrome://')) {
+        try {
+          const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_METADATA' });
+          if (response && response.meta && response.meta.title) {
+            console.log('[Mirror] Detected product via active query:', response.meta);
+            setCurrentItem({
+              url: response.url,
+              ...response.meta,
+              isFallback: true // Mark as actively detected
+            });
+            return;
+          }
+        } catch (err) {
+          // Content script might not be loaded or ready
+          console.log('[Mirror] Active query failed (content script not ready?):', err);
+        }
+      }
+
+      // 4. Reset if nothing found
+      // setCurrentItem(null); // Optional: keep last item or reset? Resetting is safer to avoid confusion.
+
     } catch (error) {
       console.error('Error loading current tab:', error);
     }
@@ -105,6 +121,7 @@ export default function MirrorTab() {
       const fileExists = listData && listData.length > 0 && listData[0].name === 'reference.jpg';
       if (!fileExists) {
         console.log('[Mirror] No reference photo found (clean check).');
+        showToast('No reference photo found. Upload one in Settings!', 'warning');
         return;
       }
 

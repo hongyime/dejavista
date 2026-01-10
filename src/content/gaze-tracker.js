@@ -216,6 +216,47 @@
     subtree: true,
   });
 
+  // Listen for metadata requests from Side Panel
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'GET_PRODUCT_METADATA') {
+      const metadata = extractMetadata();
+      // Find the largest image on screen right now as a best guess for "main image"
+      // or just reuse known high-res logic if possible.
+      // For now, let's grab the best documented "observed" image that is visible.
+      // Or simply find the largest image in the viewport.
+
+      let bestImage = null;
+      let maxArea = 0;
+
+      document.querySelectorAll('img').forEach(img => {
+        const rect = img.getBoundingClientRect();
+        // Check if visible
+        if (rect.width > 200 && rect.height > 200 &&
+          rect.top >= 0 && rect.left >= 0 &&
+          rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+          rect.right <= (window.innerWidth || document.documentElement.clientWidth)) {
+
+          const area = rect.width * rect.height;
+          if (area > maxArea) {
+            maxArea = area;
+            bestImage = img;
+          }
+        }
+      });
+
+      const imageUrl = bestImage ? extractHighResUrl(bestImage) : null;
+
+      sendResponse({
+        url: window.location.href,
+        meta: {
+          ...metadata,
+          image: imageUrl
+        }
+      });
+    }
+    // Return true not needed unless async, but good practice if we were doing async work
+  });
+
   // Send any remaining items on page unload
   window.addEventListener('beforeunload', () => {
     if (queuedItems.length > 0) {
