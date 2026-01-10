@@ -402,141 +402,85 @@ export default function MirrorTab() {
       </div>
 
       {/* Currently Browsing Section */}
-      <div className={`card ${recommendation ? 'card-ai' : ''}`}>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-          {currentItem.image && (
-            <img
-              src={currentItem.image}
-              alt={currentItem.title}
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: 'var(--radius-sm)',
-                objectFit: 'cover',
-                flexShrink: 0
-              }}
-              referrerPolicy="no-referrer"
-              loading="lazy"
-            />
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1 }}>
-            <span style={{
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: 'var(--color-primary)',
-              fontWeight: 700
-            }}>
-              {isProduct ? 'Currently Browsing' : 'Suggested Items'}
-            </span>
-            <h3 style={{ fontSize: '15px', lineHeight: '1.4', fontWeight: 600 }}>
-              {currentItem.title}
-            </h3>
-            {currentItem.price && (
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', lineHeight: '1.4', fontWeight: 400 }}>
-                {currentItem.price}
-              </p>
+      {isProduct && (
+        <div className={`card ${recommendation ? 'card-ai' : ''}`}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+            {currentItem.image && (
+              <img
+                src={currentItem.image}
+                alt={currentItem.title}
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: 'var(--radius-sm)',
+                  objectFit: 'cover',
+                  flexShrink: 0
+                }}
+                referrerPolicy="no-referrer"
+                loading="lazy"
+              />
             )}
-          </div>
-        </div>
-
-        {loading && (
-          <div style={{
-            marginTop: '16px',
-            padding: '12px',
-            backgroundColor: 'var(--color-bg-secondary)',
-            borderRadius: 'var(--radius-sm)',
-            textAlign: 'center',
-            border: '1px dashed var(--color-primary-light)'
-          }}>
-            <div className="spinner" style={{ margin: '0 auto 12px' }}></div>
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--color-primary)',
-              fontWeight: 500,
-              fontStyle: 'italic',
-              animation: 'fadeIn 0.5s ease-in-out'
-            }}>
-              {loadingMessages[loadingStep]}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1 }}>
+              <span style={{
+                fontSize: '11px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: 'var(--color-primary)',
+                fontWeight: 700
+              }}>
+                Currently Browsing
+              </span>
+              <h3 style={{ fontSize: '15px', lineHeight: '1.4', fontWeight: 600 }}>
+                {currentItem.title}
+              </h3>
+              {currentItem.price && (
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', lineHeight: '1.4', fontWeight: 400 }}>
+                  {currentItem.price}
+                </p>
+              )}
             </div>
           </div>
-        )}
 
-        {/* AI Recommendations - Only show for verified products */}
-        {isProduct && (
-          <>
-            {recommendation?.matchedItemId && (
-              <>
-                <div className="ai-reasoning">{recommendation.reasoning}</div>
-                <button
-                  className="btn btn-primary"
-                  style={{ width: '100%', marginTop: '16px' }}
-                  onClick={handleTryOn}
-                  disabled={generating || !userPhoto}
-                >
-                  {generating ? 'Generating...' : 'Try On'}
-                </button>
-              </>
-            )}
-
-            {recommendation && !recommendation.matchedItemId && (
-              <div className="ai-reasoning">
-                {recommendation.reasoning || 'No matching items found in your browsing history.'}
-              </div>
-            )}
-
-            {/* Show Try On button even without recommendation if it's a verified product */}
-            {!recommendation?.matchedItemId && userPhoto && (
+          {/* AI Recommendations - (Legacy section removed, logic now centralized) */}
+          {recommendation?.matchedItemId && (
+            <>
+              <div className="ai-reasoning">{recommendation.reasoning}</div>
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', marginTop: '16px' }}
                 onClick={handleTryOn}
-                disabled={generating || !currentItem?.image}
+                disabled={generating || !userPhoto}
               >
-                {generating ? 'Generating...' : (!currentItem?.image ? 'Image Missing' : 'Try On')}
+                {generating ? 'Generating...' : 'Try On'}
               </button>
-            )}
-          </>
-        )}
-      </div>
+            </>
+          )}
+
+          {recommendation && !recommendation.matchedItemId && (
+            <div className="ai-reasoning">
+              {recommendation.reasoning || 'No matching items found in your browsing history.'}
+            </div>
+          )}
+
+          {/* Show Try On button even without recommendation */}
+          {!recommendation?.matchedItemId && userPhoto && (
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', marginTop: '16px' }}
+              onClick={handleTryOn}
+              disabled={generating || !currentItem?.image}
+            >
+              {generating ? 'Generating...' : (!currentItem?.image ? 'Image Missing' : 'Try On')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Recommended from Memory Section */}
       {isProduct && (
         <div style={{ marginTop: '24px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '12px'
-          }}>
-            <h3 style={{
-              fontSize: '14px',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: 'var(--color-text-secondary)',
-              margin: 0
-            }}>
-              Recommended from memory
-            </h3>
-            {historyItems.length > 0 && !loading && (
-              <button
-                onClick={getRecommendation}
-                className="btn btn-secondary"
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  height: 'auto',
-                  borderRadius: 'var(--radius-sm)'
-                }}
-              >
-                Refresh
-              </button>
-            )}
-          </div>
-
           {historyItems.length === 0 ? (
-            <div style={{
+            <div className="card" style={{
               padding: '24px',
               textAlign: 'center',
               backgroundColor: 'var(--color-bg-secondary)',
@@ -549,7 +493,7 @@ export default function MirrorTab() {
               </p>
             </div>
           ) : recommendations.length === 0 && !loading ? (
-            <div style={{
+            <div className="card" style={{
               padding: '24px',
               textAlign: 'center',
               backgroundColor: 'var(--color-bg-secondary)',
@@ -580,16 +524,33 @@ export default function MirrorTab() {
                   />
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1, minWidth: 0 }}>
-                  <span style={{
-                    fontSize: '11px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    color: 'var(--color-primary)',
-                    fontWeight: 700
-                  }}>
-                    Style Match
-                  </span>
-                  <h4 style={{
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: 'var(--color-primary)',
+                      fontWeight: 700
+                    }}>
+                      Recommended Match
+                    </span>
+                    {!loading && (
+                      <button
+                        onClick={getRecommendation}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '2px 6px',
+                          fontSize: '9px',
+                          height: 'auto',
+                          borderRadius: 'var(--radius-sm)',
+                          textTransform: 'uppercase'
+                        }}
+                      >
+                        Refresh
+                      </button>
+                    )}
+                  </div>
+                  <h3 style={{
                     fontSize: '15px',
                     lineHeight: '1.4',
                     fontWeight: 600,
@@ -600,7 +561,7 @@ export default function MirrorTab() {
                     overflow: 'hidden'
                   }}>
                     {recommendations[0].meta.title}
-                  </h4>
+                  </h3>
                   {recommendations[0].meta.price && (
                     <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', margin: 0 }}>
                       {recommendations[0].meta.price}
@@ -611,6 +572,14 @@ export default function MirrorTab() {
               <div className="ai-reasoning" style={{ marginTop: '16px' }}>
                 {recommendations[0].reasoning}
               </div>
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', marginTop: '16px' }}
+                onClick={handleTryOn}
+                disabled={generating || !userPhoto}
+              >
+                {generating ? 'Generating...' : 'Try On Match'}
+              </button>
             </div>
           )}
         </div>

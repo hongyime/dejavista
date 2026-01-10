@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const INTENT_THRESHOLD = 2; // Relaxed from 3
+  const INTENT_THRESHOLD = 3; // Reverted back to 3 to avoid homepages
 
   function isContextValid() {
     return !!(chrome.runtime && chrome.runtime.id);
@@ -36,8 +36,11 @@
     });
 
     // Check for currency symbols near large text (+1 point)
+    // Ignore generic "$1" prices which are common false positives
     const pricePattern = /[\$£€¥]\s*[\d,]+\.?\d*/;
-    if (pricePattern.test(document.body.textContent)) {
+    const bodyTextRaw = document.body.textContent;
+    const priceMatch = bodyTextRaw.match(pricePattern);
+    if (priceMatch && !priceMatch[0].match(/^[\$£€¥]\s*1$/)) {
       score += 1;
     }
 
@@ -106,11 +109,16 @@
     }
 
     // Price
-    const pricePattern = /[\$£€¥]\s*[\d,]+\.?\d*/;
-    const bodyText = document.body.textContent;
-    const priceMatch = bodyText.match(pricePattern);
-    if (priceMatch) {
-      meta.price = priceMatch[0];
+    const pricePattern = /[\$£€¥]\s*[\d,]+\.?\d*/g; // Global search
+    const bodyTextRaw = document.body.textContent;
+    const matches = bodyTextRaw.match(pricePattern);
+
+    if (matches) {
+      // Find the first price that isn't "$1" or similar junk
+      const realPrice = matches.find(p => !p.match(/^[\$£€¥]\s*1$/));
+      if (realPrice) {
+        meta.price = realPrice;
+      }
     }
 
     // Brand

@@ -61,7 +61,7 @@ If nothing fits well, set recommendedItemId to null.`;
 
     // Call Gemini API - CORRECT MODEL: gemini-1.5-flash
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: {
