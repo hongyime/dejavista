@@ -21,7 +21,7 @@ export default function MirrorTab() {
 
     // Listen for tab updates (navigation)
     const handleTabUpdated = (tabId, changeInfo, tab) => {
-      if (tab.active && changeInfo.status === 'loading') {
+      if (tab.active && changeInfo.status === 'complete') {
         loadCurrentTab();
       }
     };
@@ -60,20 +60,18 @@ export default function MirrorTab() {
       // 1. Try to get rich product data from storage (set by FAB click)
       const { currentProduct } = await chrome.storage.local.get(['currentProduct']);
 
-      if (currentProduct && currentProduct.url === window.location.href) {
-        setCurrentItem(currentProduct);
-        return;
-      }
-
-      // 2. Reuse currentProduct if it matches the active tab's URL (even if window.location differs)
+      // 2. Get active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const currentUrl = tab?.url || '';
 
-      if (currentProduct && tab?.url === currentProduct.url) {
+      // 3. Match stored product with current URL
+      if (currentProduct && currentProduct.url === currentUrl) {
+        console.log('[Mirror] Using product from storage:', currentProduct.title);
         setCurrentItem(currentProduct);
         return;
       }
 
-      // 3. Active Detection: Ask the tab for metadata
+      // 4. Active Detection: Ask the tab for metadata if not in storage or URL changed
       if (tab?.id && tab.url && !tab.url.startsWith('chrome://')) {
         try {
           const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_METADATA' });
@@ -88,12 +86,13 @@ export default function MirrorTab() {
           }
         } catch (err) {
           // Content script might not be loaded or ready
-          console.log('[Mirror] Active query failed (content script not ready?):', err);
+          console.log('[Mirror] Active query failed:', err);
         }
       }
 
-      // 4. Reset if nothing found
-      // setCurrentItem(null); // Optional: keep last item or reset? Resetting is safer to avoid confusion.
+      // 5. Fallback: If nothing detected, clear the current item
+      // This ensures we don't show "stale" products on non-product pages
+      setCurrentItem(null);
 
     } catch (error) {
       console.error('Error loading current tab:', error);
@@ -174,10 +173,20 @@ export default function MirrorTab() {
   };
 
   const getRecommendation = async () => {
-    if (!currentItem || !user || !VERCEL_API_URL) return;
+    if (!currentItem || !user) return;
+
+    // Skip if API URL not configured
+    if (!VERCEL_API_URL) {
+      console.log('[Mirror] Skipping recommendation: VERCEL_API_URL not configured');
+      return;
+    }
 
     setLoading(true);
     try {
+      // Add timeout to prevent infinite loading
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(`${VERCEL_API_URL}/api/ai/recommend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -186,12 +195,25 @@ export default function MirrorTab() {
           historyItems,
           userId: user.id,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
 
       const data = await response.json();
       setRecommendation(data);
     } catch (error) {
-      console.error('Error getting recommendation:', error);
+      if (error.name === 'AbortError') {
+        console.log('[Mirror] Recommendation request timed out');
+      } else {
+        console.error('[Mirror] Error getting recommendation:', error);
+      }
+      // Clear recommendation on error
+      setRecommendation(null);
     } finally {
       setLoading(false);
     }
@@ -208,27 +230,62 @@ export default function MirrorTab() {
 
   // Handle Try On button click
   const handleTryOn = async () => {
-    if (!currentItem || !userPhoto) {
-      showToast('Need both a reference photo and product to try on', 'warning');
+    if (!currentItem || !userPhoto || !user || !VERCEL_API_URL) {
+      showToast('Need a reference photo, product, and API configuration', 'warning');
       return;
     }
 
     setGenerating(true);
-    showToast('Generating your try-on...', 'info');
+    showToast('Connecting to AI Stylist...', 'info');
 
     try {
-      // TODO: Replace with actual API call to /api/ai/generate
-      // For now, simulate with a delay and show a mock result
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 1. Prepare items for the API
+      const itemsToVisualize = [
+        {
+          title: currentItem.title,
+          url: currentItem.image,
+          meta: { title: currentItem.title, brand: currentItem.brand }
+        }
+      ];
 
-      // Mock: Use the product image as "generated" for demo purposes
-      // In production, this would be the AI-generated image URL
-      const mockGeneratedUrl = currentItem.image;
-      setGeneratedPhoto(mockGeneratedUrl);
-      showToast('Try-on generated!', 'success');
+      // If we have a matched pair, add it too
+      if (recommendation?.matchedItemId) {
+        const matched = historyItems.find(i => i.id === recommendation.matchedItemId);
+        if (matched) {
+          itemsToVisualize.push({
+            title: matched.meta?.title,
+            url: matched.image,
+            meta: matched.meta
+          });
+        }
+      }
+
+      // 2. Call backend visualization API
+      const response = await fetch(`${VERCEL_API_URL}/api/ai/visualize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPhotoUrl: `${user.id}/reference.jpg`, // Pass the path as expected by backend
+          items: itemsToVisualize
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.details || 'Failed to generate try-on');
+      }
+
+      const result = await response.json();
+
+      if (result.imageUrl) {
+        setGeneratedPhoto(result.imageUrl);
+        showToast('Try-on generated!', 'success');
+      } else {
+        throw new Error('No image URL returned from API');
+      }
     } catch (error) {
       console.error('Error generating try-on:', error);
-      showToast('Failed to generate try-on', 'error');
+      showToast(error.message || 'Failed to generate try-on', 'error');
     } finally {
       setGenerating(false);
     }
@@ -295,18 +352,7 @@ export default function MirrorTab() {
 
       {/* Currently Browsing Section */}
       <div className={`card ${recommendation ? 'card-ai' : ''}`}>
-        {/* Only show image if it's a product page */}
-        {isProduct && currentItem.image && (
-          <img
-            src={currentItem.image}
-            alt={currentItem.title}
-            className="product-image"
-            referrerPolicy="no-referrer"
-            loading="lazy"
-          />
-        )}
-
-        <div style={{ marginTop: isProduct ? 'var(--space-3)' : 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
           <span style={{
             fontSize: '11px',
             textTransform: 'uppercase',
@@ -314,7 +360,7 @@ export default function MirrorTab() {
             color: 'var(--color-primary)',
             fontWeight: 700
           }}>
-            Currently Browsing
+            {isProduct ? 'Currently Browsing' : 'Suggested Items'}
           </span>
           <h3 style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}>
             {currentItem.title}

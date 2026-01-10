@@ -130,6 +130,7 @@
     });
 
     fab.onclick = () => {
+      console.log('[DejaVista] FAB clicked, sending OPEN_SIDE_PANEL message');
       chrome.runtime.sendMessage({
         type: 'OPEN_SIDE_PANEL',
         product: product,

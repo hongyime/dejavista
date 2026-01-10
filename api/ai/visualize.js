@@ -56,18 +56,29 @@ export default async function handler(req, res) {
       model: 'imagen-3.0-generate-002',
     });
 
-    // Construct prompt
-    const prompt = `Generate a photorealistic composite image of this person wearing:
-${items.map((item, idx) => `- Item ${idx + 1}: ${item.meta?.title || 'clothing item'}`).join('\n')}
+    // Construct prompt with explicit variable mapping
+    const prompt = `Role: You are an expert AI Fashion Compositor and Virtual Try-On Specialist. 
+Your goal is to seamlessly integrate specific clothing items onto a target user while maintaining absolute identity preservation.
 
-Maintain realistic proportions, lighting, and textures.`;
+Inputs:
+- Target Model: The attached reference photo (user.id: ${userPhotoUrl.split('/')[0]})
+- Garments to Apply:
+${items.map((item, idx) => `  - Garment ${idx + 1} [${item.meta?.title || 'Clothing Item'}]: ${item.url}`).join('\n')}
 
-    // Generate image (this is a placeholder - actual Imagen API may differ)
-    // Note: Imagen 3 API structure may vary, adjust based on actual documentation
+Execution Guidelines:
+1. Identity & Pose Preservation (CRITICAL): The user's facial features, skin tone, body type, pose, and background must remain 100% pixel-perfect to the original Target Model image. Do not alter the subject's physical traits or environment.
+2. Garment Transfer: Replace the user's existing clothing in the Target Model with the garments listed above. Ensure Garment 1 and any subsequent garments are fitted naturally onto the body.
+3. Physics & Draping: Ensure the clothing follows the contour of the body. Apply realistic gravity, folds, wrinkles, and tension points based on the pose in the Target Model.
+4. Lighting & Integration: Analyze the lighting source, color temperature, and shadows of the Target Model. Apply these exact lighting conditions to the new garments so they look optically bonded to the scene.
+5. Output Quality: Photorealistic, 8k resolution, high fidelity texture, commercial fashion photography style.`;
+
+    // Generate image using Vertex AI Imagen
     const result = await model.generateImages({
       prompt,
-      image: photoData,
+      image: photoData, // This is the 'Target Model' image passed to the model
       numberOfImages: 1,
+      aspectRatio: '9:16',
+      addWatermark: false
     });
 
     // Store result (in production, save to storage and return URL)
@@ -80,9 +91,9 @@ Maintain realistic proportions, lighting, and textures.`;
     });
   } catch (error) {
     console.error('Error in visualize API:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to generate visualization',
-      details: error.message 
+      details: error.message
     });
   }
 }

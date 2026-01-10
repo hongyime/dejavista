@@ -62,6 +62,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleBatchItems(message.items, sender.tab?.id);
     sendResponse({ success: true });
   } else if (message.type === 'OPEN_SIDE_PANEL') {
+    console.log('[DejaVista] Received OPEN_SIDE_PANEL message from tab', sender.tab?.id);
     // Pass windowId directly to preserve user gesture
     const windowId = sender.tab?.windowId;
     if (windowId) {
