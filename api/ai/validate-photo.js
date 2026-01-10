@@ -39,51 +39,69 @@ export default async function handler(req, res) {
       "missingParts": ["face", "arms", "legs"] // include only what is missing
     }`;
 
-        // Initialize Vertex AI
+        // Initialize Vertex AI with robust auth and fallback
         const project = process.env.GOOGLE_CLOUD_PROJECT_ID || 'gen-lang-client-0209105478';
         const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
 
-        let authOptions = {};
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-            try {
-                const creds = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-                authOptions = { credentials: creds };
-            } catch (e) {
-                console.warn('[Validate] Warning: GOOGLE_APPLICATION_CREDENTIALS parsing failed');
-            }
-        }
-
-        const { VertexAI } = await import('@google-cloud/vertexai');
-        const vertexAI = new VertexAI({ project, location, ...authOptions });
-        const model = vertexAI.getGenerativeModel({
-            model: 'gemini-1.5-flash',
-            generationConfig: {
-                maxOutputTokens: 512,
-                temperature: 0.1, // Stricter for validation
-            }
-        });
+        const { initVertexAI, initGoogleAI } = await import('./utils/auth.js');
+        const { vertexAI, fallback } = await initVertexAI(project, location);
 
         // Prepare image for Gemini (remove data:image/xxx;base64, prefix if present)
         const base64Data = image.split(',')[1] || image;
 
-        console.log('[Validate] Calling Vertex AI Vision...');
-        const result_vertex = await model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [
-                    { text: prompt },
-                    {
-                        inlineData: {
-                            mimeType: "image/jpeg",
-                            data: base64Data
-                        }
-                    }
-                ]
-            }]
-        });
+        let responseText = '';
 
-        const v_response = await result_vertex.response;
-        let responseText = v_response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!fallback && vertexAI) {
+            // Use Vertex AI
+            console.log('[Validate] Using Vertex AI...');
+            const model = vertexAI.getGenerativeModel({
+                model: 'gemini-1.5-flash',
+                generationConfig: {
+                    maxOutputTokens: 512,
+                    temperature: 0.1, // Stricter for validation
+                }
+            });
+
+            const result_vertex = await model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: "image/jpeg",
+                                data: base64Data
+                            }
+                        }
+                    ]
+                }]
+            });
+
+            const v_response = await result_vertex.response;
+            responseText = v_response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else {
+            // Fallback to Google AI SDK
+            console.log('[Validate] Using Google AI SDK (fallback)...');
+            const genAI = await initGoogleAI();
+            
+            if (!genAI) {
+                throw new Error('Neither Vertex AI nor Google AI SDK available');
+            }
+
+            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            const result = await model.generateContent([
+                prompt,
+                {
+                    inlineData: {
+                        data: base64Data,
+                        mimeType: 'image/jpeg'
+                    }
+                }
+            ]);
+
+            const response = await result.response;
+            responseText = response.text() || '';
+        }
 
         // Robust JSON extraction
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);

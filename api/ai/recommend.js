@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getVertexAIAuthOptions, initGoogleAI } from './utils/auth.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -22,8 +23,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  if (!geminiApiKey) {
-    return res.status(500).json({ error: 'Gemini API key not configured' });
+  // Check if we have any AI credentials
+  const hasVertexAICreds = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  
+  if (!geminiApiKey && !hasVertexAICreds) {
+    return res.status(500).json({ error: 'No AI credentials configured (neither GEMINI_API_KEY nor GOOGLE_APPLICATION_CREDENTIALS)' });
   }
 
   try {
@@ -67,41 +71,74 @@ Respond in JSON format ONLY:
 
 If nothing fits or history is empty, set recommendedItemId to null.`;
 
-    // Initialize Vertex AI
-    const project = process.env.GOOGLE_CLOUD_PROJECT_ID || 'gen-lang-client-0209105478';
-    const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-
-    // Check for credentials
-    let authOptions = {};
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    let responseText = '';
+    
+    // Prefer Google AI SDK (simpler, more reliable) if API key is available
+    // Only use Vertex AI if no API key but Vertex AI credentials are available
+    if (geminiApiKey) {
       try {
-        const creds = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-        authOptions = { credentials: creds };
-      } catch (e) {
-        console.warn('[Recommend] Warning: GOOGLE_APPLICATION_CREDENTIALS parsing failed');
+        console.log('[Recommend] Using Google AI SDK (API key)...');
+        const googleAI = await initGoogleAI();
+        if (!googleAI) {
+          throw new Error('Google AI SDK initialization failed');
+        }
+        const model = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const result = await model.generateContent(prompt);
+        responseText = result.response.text();
+        console.log('[Recommend] Successfully got response from Google AI SDK');
+      } catch (googleAIError) {
+        console.warn('[Recommend] Google AI SDK failed:', googleAIError.message);
+        // Fall through to Vertex AI if available
+        if (!hasVertexAICreds) {
+          throw new Error(`AI service unavailable: ${googleAIError.message}`);
+        }
       }
     }
+    
+    // Try Vertex AI if Google AI SDK failed or wasn't available
+    if (!responseText && hasVertexAICreds) {
+      try {
+        console.log('[Recommend] Attempting Vertex AI...');
+        const project = process.env.GOOGLE_CLOUD_PROJECT_ID || 'gen-lang-client-0209105478';
+        const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
+        const authOptions = getVertexAIAuthOptions();
+        
+        if (!authOptions.credentials) {
+          throw new Error('Vertex AI credentials not properly configured');
+        }
+        
+        const { VertexAI } = await import('@google-cloud/vertexai');
+        const vertexAI = new VertexAI({ project, location, ...authOptions });
+        const model = vertexAI.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          generationConfig: {
+            maxOutputTokens: 256,
+            temperature: 0.7,
+          }
+        });
 
-    const { VertexAI } = await import('@google-cloud/vertexai');
-    const vertexAI = new VertexAI({ project, location, ...authOptions });
-    const model = vertexAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        maxOutputTokens: 256,
-        temperature: 0.7,
+        console.log('[Recommend] Calling Vertex AI...');
+        const result_vertex = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        });
+
+        const v_response = await result_vertex.response;
+        responseText = v_response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        console.log('[Recommend] Successfully got response from Vertex AI');
+      } catch (vertexError) {
+        console.error('[Recommend] Vertex AI failed:', vertexError.message);
+        if (!responseText) {
+          throw new Error(`AI service unavailable: ${vertexError.message}`);
+        }
       }
-    });
-
-    console.log('[Recommend] Calling Vertex AI...');
-    const result_vertex = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }]
-    });
-
-    const v_response = await result_vertex.response;
-    let responseText = v_response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
+    }
+    
     if (!responseText) {
-      console.log('[Recommend] Empty response from Vertex AI');
+      throw new Error('No response from AI service');
+    }
+
+    if (!responseText || responseText.trim() === '') {
+      console.log('[Recommend] Empty response from AI service');
       return res.status(200).json({ recommendation: null });
     }
 
