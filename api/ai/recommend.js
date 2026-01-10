@@ -67,9 +67,9 @@ Respond in JSON format ONLY:
 
 If nothing fits or history is empty, set recommendedItemId to null.`;
 
-    // Call Gemini API - CORRECT MODEL: gemini-1.5-flash
+    // Call Gemini API - Using latest alias and v1beta for robustness
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: {

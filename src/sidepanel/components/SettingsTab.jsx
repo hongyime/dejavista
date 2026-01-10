@@ -52,9 +52,38 @@ export default function SettingsTab() {
     });
 
     setUploading(true);
-    // showToast('Uploading...', 'info'); // UI spinner is enough
 
     try {
+      // 1. Convert file to base64 for validation
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve) => {
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+      const base64Image = await base64Promise;
+
+      // 2. Validate with AI
+      console.log('[Settings] Validating photo with AI...');
+      const validateRes = await fetch(`${VERCEL_API_URL}/api/ai/validate-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image })
+      });
+
+      if (!validateRes.ok) {
+        throw new Error('AI Validation service unavailable');
+      }
+
+      const validation = await validateRes.json();
+      if (!validation.valid) {
+        console.warn('[Settings] Photo rejected by AI:', validation.reasoning);
+        showToast(`Rejected: ${validation.reasoning}`, 'error');
+        setUploading(false);
+        return;
+      }
+
+      console.log('[Settings] Photo passed AI validation');
+
       // Preview
       const previewUrl = URL.createObjectURL(file);
       setPhotoPreview(previewUrl);
@@ -77,11 +106,10 @@ export default function SettingsTab() {
       }
 
       console.log('[Settings] Upload success:', data);
-      showToast('Photo uploaded successfully', 'success');
+      showToast('Photo verified and uploaded!', 'success');
     } catch (error) {
       console.error('Error uploading photo:', error);
-      showToast('Failed to upload photo', 'error');
-      // Revert preview if failed? Optional.
+      showToast(error.message || 'Failed to upload photo', 'error');
     } finally {
       setUploading(false);
     }
