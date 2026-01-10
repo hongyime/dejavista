@@ -15,14 +15,27 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    // 1. Check Guest Mode from storage
+    const { isGuestMode } = await chrome.storage.local.get(['isGuestMode']);
+    if (isGuestMode) {
+      setIsGuest(true);
+      setLoading(false);
+      return;
+    }
+
     if (!supabase) {
       setLoading(false);
       return;
     }
 
-    // Check existing session
+    // 2. Check Supabase Session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -31,10 +44,15 @@ export function AuthProvider({ children }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        // If user signs in, disable guest mode
+        setIsGuest(false);
+        chrome.storage.local.set({ isGuestMode: false });
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  };
 
   const signIn = async () => {
     if (!supabase) {
@@ -101,8 +119,13 @@ export function AuthProvider({ children }) {
     console.log('[DejaVista] ✓ Successfully signed out');
   };
 
+  const enterGuestMode = async () => {
+    setIsGuest(true);
+    await chrome.storage.local.set({ isGuestMode: true });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, supabase }}>
+    <AuthContext.Provider value={{ user, isGuest, loading, signIn, signOut, enterGuestMode, supabase }}>
       {children}
     </AuthContext.Provider>
   );
