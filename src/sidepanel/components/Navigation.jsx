@@ -13,7 +13,7 @@ export default function Navigation({ activeTab, setActiveTab }) {
         className={`nav-tab ${activeTab === 'closet' ? 'active' : ''}`}
         onClick={() => setActiveTab('closet')}
       >
-        Closet
+        Memory
       </button>
       <button
         className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}

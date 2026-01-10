@@ -46,48 +46,62 @@ export default function ClosetTab() {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">📦</div>
-        <h3>No items yet</h3>
-        <p>Start browsing fashion sites to build your closet</p>
+        <h3>Memory Empty</h3>
+        <p>Your browsing history and saved items will appear here.</p>
       </div>
     );
   }
 
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: 'var(--space-3)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 'var(--space-2)',
     }}>
       {items.map((item) => (
-        <div key={item.id} className="card">
+        <div key={item.id} className="card" style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: 'var(--space-2)',
+          gap: 'var(--space-3)'
+        }}>
           {item.meta?.image && (
-            <img
-              src={item.meta.image}
-              alt={item.meta.title || 'Item'}
-              className="product-image"
-              referrerPolicy="no-referrer"
-              loading="lazy"
-            />
+            <div style={{ flexShrink: 0 }}>
+              <img
+                src={item.meta.image}
+                alt={item.meta.title || 'Item'}
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  objectFit: 'cover',
+                  borderRadius: 'var(--radius-sm)'
+                }}
+                referrerPolicy="no-referrer"
+                loading="lazy"
+              />
+            </div>
           )}
           {item.meta?.title && (
-            <div style={{ marginTop: '8px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <h4 style={{
-                fontSize: '12px',
-                lineHeight: '1.5',
+                fontSize: '13px',
+                lineHeight: '1.4',
                 fontWeight: 600,
                 color: 'var(--color-text-primary)',
-                marginBottom: 'var(--space-1)',
+                marginBottom: '4px',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
               }}>
                 {item.meta.title}
               </h4>
               {item.meta.price && (
                 <p style={{
                   fontSize: '12px',
-                  lineHeight: '1.5',
-                  fontWeight: 400,
+                  lineHeight: '1.4',
+                  fontWeight: 500,
                   color: 'var(--color-text-secondary)',
                 }}>
                   {item.meta.price}
