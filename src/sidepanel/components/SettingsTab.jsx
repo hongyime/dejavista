@@ -117,6 +117,9 @@ export default function SettingsTab() {
       // Clear local cache
       await chrome.storage.local.clear();
 
+      // Signal photo purged (for other components like MirrorTab)
+      await chrome.storage.local.set({ photoPurged: Date.now() });
+
       showToast('Memory purged successfully', 'success');
       setPhotoPreview(null);
     } catch (error) {

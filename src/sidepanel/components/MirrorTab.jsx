@@ -8,8 +8,10 @@ export default function MirrorTab() {
   const { showToast } = useToast();
   const [currentItem, setCurrentItem] = useState(null);
   const [userPhoto, setUserPhoto] = useState(null);
+  const [generatedPhoto, setGeneratedPhoto] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
 
   useEffect(() => {
@@ -29,10 +31,16 @@ export default function MirrorTab() {
       loadCurrentTab();
     };
 
-    // Listen for storage updates (e.g. from FAB)
+    // Listen for storage updates (e.g. from FAB or Settings purge)
     const handleStorageChanged = (changes) => {
       if (changes.currentProduct) {
         loadCurrentTab();
+      }
+      // Listen for photo purge signal from SettingsTab
+      if (changes.photoPurged) {
+        console.log('[Mirror] Photo purged, clearing cached photo');
+        setUserPhoto(null);
+        setGeneratedPhoto(null);
       }
     };
 
@@ -195,6 +203,42 @@ export default function MirrorTab() {
     }
   }, [currentItem, historyItems]);
 
+  // Determine if the current item is a "product" (has image and price)
+  const isProduct = currentItem?.image && currentItem?.price;
+
+  // Handle Try On button click
+  const handleTryOn = async () => {
+    if (!currentItem || !userPhoto) {
+      showToast('Need both a reference photo and product to try on', 'warning');
+      return;
+    }
+
+    setGenerating(true);
+    showToast('Generating your try-on...', 'info');
+
+    try {
+      // TODO: Replace with actual API call to /api/ai/generate
+      // For now, simulate with a delay and show a mock result
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Mock: Use the product image as "generated" for demo purposes
+      // In production, this would be the AI-generated image URL
+      const mockGeneratedUrl = currentItem.image;
+      setGeneratedPhoto(mockGeneratedUrl);
+      showToast('Try-on generated!', 'success');
+    } catch (error) {
+      console.error('Error generating try-on:', error);
+      showToast('Failed to generate try-on', 'error');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Reset generated photo to go back to reference
+  const handleResetPhoto = () => {
+    setGeneratedPhoto(null);
+  };
+
   if (!currentItem) {
     return (
       <div className="empty-state">
@@ -210,25 +254,49 @@ export default function MirrorTab() {
 
   return (
     <div>
-      {userPhoto ? (
-        <div className="card" style={{ marginBottom: '16px' }}>
+      {/* Reference Photo Section - shows generated photo if available */}
+      <div className="card" style={{ marginBottom: '16px' }}>
+        {generating ? (
+          <div style={{ padding: '48px', textAlign: 'center' }}>
+            <div className="spinner" style={{ margin: '0 auto 16px' }}></div>
+            <p style={{ color: 'var(--color-text-secondary)' }}>Generating your look...</p>
+          </div>
+        ) : generatedPhoto ? (
+          <>
+            <img
+              src={generatedPhoto}
+              alt="Generated try-on"
+              className="product-image"
+              referrerPolicy="no-referrer"
+            />
+            <button
+              className="btn btn-secondary"
+              style={{ width: '100%', marginTop: '12px' }}
+              onClick={handleResetPhoto}
+            >
+              Reset to Reference
+            </button>
+          </>
+        ) : userPhoto ? (
           <img
             src={userPhoto}
             alt="Your reference"
             className="product-image"
             referrerPolicy="no-referrer"
           />
-        </div>
-      ) : (
-        <div className="card" style={{ marginBottom: '16px', padding: '48px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
-            Upload a reference photo in Settings
-          </p>
-        </div>
-      )}
+        ) : (
+          <div style={{ padding: '48px', textAlign: 'center' }}>
+            <p style={{ color: 'var(--color-text-secondary)' }}>
+              Upload a reference photo in Settings
+            </p>
+          </div>
+        )}
+      </div>
 
+      {/* Currently Browsing Section */}
       <div className={`card ${recommendation ? 'card-ai' : ''}`}>
-        {currentItem.image && (
+        {/* Only show image if it's a product page */}
+        {isProduct && currentItem.image && (
           <img
             src={currentItem.image}
             alt={currentItem.title}
@@ -237,22 +305,21 @@ export default function MirrorTab() {
             loading="lazy"
           />
         )}
-        <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-          {currentItem.isFallback && (
-            <span style={{
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: 'var(--color-primary)',
-              fontWeight: 700
-            }}>
-              Currently Browsing
-            </span>
-          )}
+
+        <div style={{ marginTop: isProduct ? 'var(--space-3)' : 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span style={{
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'var(--color-primary)',
+            fontWeight: 700
+          }}>
+            Currently Browsing
+          </span>
           <h3 style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}>
             {currentItem.title}
           </h3>
-          {currentItem.price && (
+          {isProduct && currentItem.price && (
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', lineHeight: '1.6', fontWeight: 400 }}>
               {currentItem.price}
             </p>
@@ -268,8 +335,13 @@ export default function MirrorTab() {
         {recommendation?.matchedItemId && (
           <>
             <div className="ai-reasoning">{recommendation.reasoning}</div>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }}>
-              Try On
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', marginTop: '16px' }}
+              onClick={handleTryOn}
+              disabled={generating || !userPhoto}
+            >
+              {generating ? 'Generating...' : 'Try On'}
             </button>
           </>
         )}
@@ -279,7 +351,20 @@ export default function MirrorTab() {
             {recommendation.reasoning || 'No matching items found in your browsing history.'}
           </div>
         )}
+
+        {/* Show Try On button even without recommendation if it's a product */}
+        {isProduct && !recommendation?.matchedItemId && userPhoto && (
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '16px' }}
+            onClick={handleTryOn}
+            disabled={generating}
+          >
+            {generating ? 'Generating...' : 'Try On'}
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
