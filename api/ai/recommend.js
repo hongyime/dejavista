@@ -27,30 +27,31 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('[Recommend] Processing recommendation for user:', userId);
+
     // Construct prompt for Gemini
-    const prompt = `You are a fashion stylist. Review these ${historyItems.length} items from the user's browsing history and return the ONE item ID that best matches the style of the current item.
+    const prompt = `You are a fashion stylist. Review these ${historyItems.length} items from the user's browsing history and return the ONE item ID that best matches the style/aesthetic of the current item.
 
 Current Item:
-- Title: ${currentItem.meta?.title || 'Unknown'}
-- Brand: ${currentItem.meta?.brand || 'Unknown'}
-- URL: ${currentItem.url}
+- Title: ${currentItem.title || currentItem.meta?.title || 'Unknown'}
+- Brand: ${currentItem.brand || currentItem.meta?.brand || 'Unknown'}
 
 History Items:
-${historyItems.map((item, idx) => 
-  `${idx + 1}. ID: ${item.id}, Title: ${item.meta?.title || 'Unknown'}, Brand: ${item.meta?.brand || 'Unknown'}`
-).join('\n')}
+${historyItems.slice(0, 50).map((item, idx) =>
+      `${idx + 1}. ID: ${item.id}, Title: ${item.meta?.title || 'Unknown'}, Brand: ${item.meta?.brand || 'Unknown'}`
+    ).join('\n')}
 
-Respond in JSON format ONLY (no markdown, no explanation):
+Respond in JSON format ONLY:
 {
   "matchedItemId": "uuid-or-null",
-  "reasoning": "Brief explanation of why this item matches (or why no match was found)"
+  "reasoning": "Brief explanation of why this item matches (max 20 words)"
 }
 
 If no good match exists, set matchedItemId to null.`;
 
-    // Call Gemini API
+    // Call Gemini API - CORRECT MODEL: gemini-1.5-flash
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: {
@@ -60,37 +61,35 @@ If no good match exists, set matchedItemId to null.`;
           contents: [{
             parts: [{ text: prompt }],
           }],
+          generationConfig: {
+            response_mime_type: "application/json"
+          }
         }),
       }
     );
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
-      throw new Error(`Gemini API error: ${geminiResponse.statusText} - ${errorText}`);
+      console.error('[Recommend] Gemini API Error:', errorText);
+      throw new Error(`Gemini API error: ${geminiResponse.status}`);
     }
 
     const geminiData = await geminiResponse.json();
     const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
-    // Parse JSON (strip markdown fences if present)
-    let cleanedText = responseText.trim();
-    if (cleanedText.startsWith('```json')) {
-      cleanedText = cleanedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    } else if (cleanedText.startsWith('```')) {
-      cleanedText = cleanedText.replace(/```\n?/g, '');
-    }
+    const result = JSON.parse(responseText.trim());
 
-    const result = JSON.parse(cleanedText);
+    console.log('[Recommend] Recommendation generated:', result.matchedItemId);
 
     return res.status(200).json({
       matchedItemId: result.matchedItemId || null,
       reasoning: result.reasoning || 'No match found.',
     });
   } catch (error) {
-    console.error('Error in recommend API:', error);
-    return res.status(500).json({ 
+    console.error('[Recommend] Fatal Error:', error);
+    return res.status(500).json({
       error: 'Failed to get recommendation',
-      details: error.message 
+      details: error.message
     });
   }
 }

@@ -210,10 +210,11 @@ export default function MirrorTab() {
     }
 
     setLoading(true);
+    setLoadingStep(0); // Reset loading step
+    console.log('[Mirror] Fetching AI recommendations...');
     try {
-      // Add timeout to prevent infinite loading
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // Increased to 20s // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
       const response = await fetch(`${VERCEL_API_URL}/api/ai/recommend`, {
         method: 'POST',

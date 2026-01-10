@@ -50,7 +50,7 @@
       '[class*="size" i] li',
       '.size-selector',
       '#size-selector',
-      'aria-label*="size" i'
+      '[aria-label*="size" i]'
     ];
     sizeSelectors.forEach(selector => {
       if (document.querySelector(selector)) {
@@ -116,13 +116,25 @@
     meta.brand = window.location.hostname;
 
     // Image
-    const ogImage = document.querySelector('meta[property="og:image"]');
-    if (ogImage) {
-      meta.image = ogImage.content;
-    } else {
-      const mainImg = document.querySelector('img[src*="product"], img[data-zoom-image]');
+    const imageSelectors = [
+      'meta[property="og:image"]',
+      'meta[name="twitter:image"]',
+      'link[rel="image_src"]',
+      'meta[property="og:image:secure_url"]'
+    ];
+
+    for (const selector of imageSelectors) {
+      const el = document.querySelector(selector);
+      if (el) {
+        meta.image = el.content || el.href;
+        if (meta.image) break;
+      }
+    }
+
+    if (!meta.image) {
+      const mainImg = document.querySelector('img[src*="product"], img[data-zoom-image], [class*="product-image"] img, [id*="product-image"] img, .main-image img, #main-image img');
       if (mainImg) {
-        meta.image = mainImg.dataset.zoomImage || mainImg.srcset?.split(',')[0]?.trim() || mainImg.src;
+        meta.image = mainImg.dataset.zoomImage || mainImg.dataset.mainImage || mainImg.srcset?.split(',')[0]?.trim() || mainImg.src;
       }
     }
 

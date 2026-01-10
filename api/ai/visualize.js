@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// VERSION: 2.1 - Safety & Simulation Mode
+// VERSION: 2.2 - Signed URL Stability
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
@@ -24,34 +24,41 @@ export default async function handler(req, res) {
 
     // 1. Download User Photo (Validation)
     const photoPath = userPhotoUrl.split('/').slice(-2).join('/');
-    console.log('[Visualize] Attempting to download:', photoPath);
+    console.log('[Visualize] Validating existence of:', photoPath);
 
-    const { data: photoBlob, error: photoError } = await supabase.storage
+    // We check existence first
+    const { data: listData, error: listError } = await supabase.storage
       .from('user_photos')
-      .download(photoPath);
+      .list(userPhotoUrl.split('/')[0], {
+        limit: 1,
+        search: 'reference.jpg'
+      });
 
-    if (photoError) {
-      console.error('[Visualize] Supabase Photo Error:', photoError.message);
-      return res.status(404).json({ error: `Reference photo not found: ${photoError.message}` });
+    if (listError || !listData || listData.length === 0) {
+      console.error('[Visualize] Photo not found or Supabase error:', listError);
+      return res.status(404).json({ error: 'Reference photo not found in storage' });
     }
 
-    // 2. Simulation Logic
-    // To prevent "model.generateImages is not a function" or other SDK-specific errors,
-    // we return the model's own photo as the "result" for now.
-    // This allows the entire pipeline to be verified as working.
-
-    const { data: { publicUrl } } = supabase.storage
+    // 2. Simulation Logic with Signed URL
+    // Private buckets require signed URLs for public viewing.
+    console.log('[Visualize] Generating signed URL for simulation');
+    const { data: signedData, error: signedError } = await supabase.storage
       .from('user_photos')
-      .getPublicUrl(photoPath);
+      .createSignedUrl(photoPath, 3600); // 1 hour link
 
-    console.log('[Visualize] Simulation complete. Result URL:', publicUrl);
+    if (signedError) {
+      console.error('[Visualize] Signed URL error:', signedError);
+      throw signedError;
+    }
+
+    console.log('[Visualize] Simulation complete. Signed URL generated.');
 
     return res.status(200).json({
       jobId,
       status: 'complete',
-      imageUrl: publicUrl,
-      version: '2.1',
-      message: 'Stylist Vision (Simulation Mode). All components connected successfully.',
+      imageUrl: signedData.signedUrl,
+      version: '2.2',
+      message: 'Stylist Vision (Simulation Mode). Signed URL generated for secure preview.',
       itemsProcessed: items.map(i => i.title)
     });
 
@@ -59,8 +66,7 @@ export default async function handler(req, res) {
     console.error('[Visualize] Fatal error during visualization:', error);
     return res.status(500).json({
       error: 'Failed to generate visualization',
-      details: error.message,
-      stack: error.stack
+      details: error.message
     });
   }
 }

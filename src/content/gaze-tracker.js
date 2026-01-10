@@ -243,15 +243,22 @@
 
       document.querySelectorAll('img').forEach(img => {
         const rect = img.getBoundingClientRect();
-        // Check if visible
-        if (rect.width > 200 && rect.height > 200 &&
-          rect.top >= 0 && rect.left >= 0 &&
-          rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-          rect.right <= (window.innerWidth || document.documentElement.clientWidth)) {
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
 
-          const area = rect.width * rect.height;
-          if (area > maxArea) {
-            maxArea = area;
+        // Relaxed visibility: Image must be at least 201x201 and partially in viewport
+        const isVisible = rect.width > 200 && rect.height > 200 &&
+          rect.bottom > 0 && rect.right > 0 &&
+          rect.top < viewportHeight && rect.left < viewportWidth;
+
+        if (isVisible) {
+          // Calculate area in viewport (roughly)
+          const visibleWidth = Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0);
+          const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+          const visibleArea = visibleWidth * visibleHeight;
+
+          if (visibleArea > maxArea) {
+            maxArea = visibleArea;
             bestImage = img;
           }
         }
