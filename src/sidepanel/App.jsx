@@ -34,11 +34,17 @@ function AppContent() {
   );
 }
 
+import { ToastProvider } from './contexts/ToastContext';
+import ToastContainer from './components/ToastContainer';
+
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <AppContent />
+        <ToastContainer />
+      </AuthProvider>
+    </ToastProvider>
   );
 }
 

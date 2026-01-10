@@ -71,16 +71,41 @@
   }
 
   // Send batch to background script
+  // Send batch to background script
   function sendBatch() {
     if (queuedItems.length === 0) return;
+
+    if (!chrome.runtime?.id) {
+      // Extension context invalid, stop tracking
+      shutdown();
+      return;
+    }
 
     const itemsToSend = [...queuedItems];
     queuedItems.length = 0;
 
-    chrome.runtime.sendMessage({
-      type: 'BATCH_ITEMS',
-      items: itemsToSend,
-    }).catch(err => console.error('Error sending batch:', err));
+    try {
+      chrome.runtime.sendMessage({
+        type: 'BATCH_ITEMS',
+        items: itemsToSend,
+      }).catch(err => {
+        if (err.message.includes('Extension context invalidated')) {
+          shutdown();
+        } else {
+          console.error('Error sending batch:', err);
+        }
+      });
+    } catch (e) {
+      if (e.message.includes('Extension context invalidated')) {
+        shutdown();
+      }
+    }
+  }
+
+  function shutdown() {
+    observer.disconnect();
+    mutationObserver.disconnect();
+    console.log('[DejaView] Extension context invalidated. Stopping tracker.');
   }
 
   // Debounce logic

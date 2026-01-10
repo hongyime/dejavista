@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 export default function SettingsTab() {
   const { user, supabase, signOut } = useAuth();
+  const { showToast } = useToast();
   const [incognitoMode, setIncognitoMode] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -43,24 +45,41 @@ export default function SettingsTab() {
     const file = event.target.files?.[0];
     if (!file || !user || !supabase) return;
 
+    console.log('[Settings] Starting photo upload...', {
+      size: file.size,
+      type: file.type,
+      name: file.name
+    });
+
+    showToast('Uploading photo...', 'info');
+
     setUploading(true);
     try {
       // Preview
       const previewUrl = URL.createObjectURL(file);
       setPhotoPreview(previewUrl);
 
+      const path = `${user.id}/reference.jpg`;
+      console.log('[Settings] Uploading to path:', path);
+
       // Upload to Supabase
-      const { error } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from('user_photos')
-        .upload(`${user.id}/reference.jpg`, file, {
+        .upload(path, file, {
           upsert: true,
           contentType: file.type,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Settings] Supabase upload error:', error);
+        throw error;
+      }
+
+      console.log('[Settings] Upload success:', data);
+      showToast('Photo uploaded successfully', 'success');
     } catch (error) {
       console.error('Error uploading photo:', error);
-      alert('Failed to upload photo');
+      showToast('Failed to upload photo', 'error');
       setPhotoPreview(null);
     } finally {
       setUploading(false);
@@ -91,11 +110,13 @@ export default function SettingsTab() {
       // Clear local cache
       await chrome.storage.local.clear();
 
-      alert('Memory purged successfully');
+      await chrome.storage.local.clear();
+
+      showToast('Memory purged successfully', 'success');
       setPhotoPreview(null);
     } catch (error) {
       console.error('Error purging memory:', error);
-      alert('Failed to purge memory');
+      showToast('Failed to purge memory', 'error');
     }
   };
 

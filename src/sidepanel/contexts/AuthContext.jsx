@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useToast } from './ToastContext';
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../utils/env';
 
@@ -16,6 +17,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     checkUser();
@@ -101,6 +103,7 @@ export function AuthProvider({ children }) {
               console.error('[DejaVista] ✗ Session error:', error);
             } else {
               console.log('[DejaVista] ✓ Successfully signed in:', session?.user?.email);
+              showToast('Signed in successfully', 'success');
             }
           } else {
             console.error('[DejaVista] ✗ No tokens in redirect URL');
@@ -117,6 +120,7 @@ export function AuthProvider({ children }) {
     console.log('[DejaVista] Signing out...');
     await supabase.auth.signOut();
     console.log('[DejaVista] ✓ Successfully signed out');
+    showToast('Signed out', 'info');
   };
 
   const enterGuestMode = async () => {

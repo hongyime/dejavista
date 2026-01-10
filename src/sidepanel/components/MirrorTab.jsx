@@ -48,20 +48,32 @@ export default function MirrorTab() {
   };
 
   const loadUserPhoto = async () => {
-    if (!user || !supabase) return;
+    if (!user || !supabase) {
+      console.log('[Mirror] Skipping photo load: User or Supabase missing', { user: !!user, supabase: !!supabase });
+      return;
+    }
+
+    const path = `${user.id}/reference.jpg`;
+    console.log('[Mirror] Loading user photo from:', path);
 
     try {
-      const { data } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from('user_photos')
-        .download(`${user.id}/reference.jpg`);
+        .download(path);
+
+      if (error) {
+        console.warn('[Mirror] Photo verify/download error:', error);
+        throw error;
+      }
 
       if (data) {
+        console.log('[Mirror] Photo downloaded successfully, size:', data.size);
         const url = URL.createObjectURL(data);
         setUserPhoto(url);
       }
     } catch (error) {
       // Photo doesn't exist yet
-      console.log('No user photo found');
+      console.log('[Mirror] No user photo found or error:', error.message);
     }
   };
 
