@@ -110,6 +110,8 @@ export function AuthProvider({ children }) {
               showToast('Signed in successfully', 'success');
               // Ensure we persist/update state
               setUser(data.session?.user ?? null);
+              setIsGuest(false);
+              chrome.storage.local.set({ isGuestMode: false });
             }
             return;
           }
@@ -143,7 +145,12 @@ export function AuthProvider({ children }) {
               showToast('Session error: ' + error.message, 'error');
             } else {
               console.log('[DejaVista] ✓ Successfully signed in:', data.session?.user?.email);
-              // setUser will be updated by onAuthStateChange, but we can also set it here effectively
+
+              // CRITICAL: Force state update immediately
+              setUser(data.session?.user ?? null);
+              setIsGuest(false);
+              chrome.storage.local.set({ isGuestMode: false });
+
               showToast('Signed in successfully', 'success');
             }
           } else {
