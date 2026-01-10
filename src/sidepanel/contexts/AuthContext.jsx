@@ -16,7 +16,6 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -24,14 +23,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const checkUser = async () => {
-    // 1. Check Guest Mode from storage
-    const { isGuestMode } = await chrome.storage.local.get(['isGuestMode']);
-    if (isGuestMode) {
-      setIsGuest(true);
-      setLoading(false);
-      return;
-    }
-
     if (!supabase) {
       setLoading(false);
       return;
@@ -48,10 +39,7 @@ export function AuthProvider({ children }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // If user signs in, disable guest mode
-        setIsGuest(false);
         chrome.storage.local.set({
-          isGuestMode: false,
           supabaseSession: session
         });
       } else if (event === 'SIGNED_OUT') {
@@ -180,13 +168,8 @@ export function AuthProvider({ children }) {
     showToast('Signed out', 'info');
   };
 
-  const enterGuestMode = async () => {
-    setIsGuest(true);
-    await chrome.storage.local.set({ isGuestMode: true });
-  };
-
   return (
-    <AuthContext.Provider value={{ user, isGuest, loading, signIn, signOut, enterGuestMode, supabase }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, supabase }}>
       {children}
     </AuthContext.Provider>
   );

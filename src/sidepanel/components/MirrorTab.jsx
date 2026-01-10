@@ -85,14 +85,37 @@ export default function MirrorTab() {
     const path = `${user.id}/reference.jpg`;
     console.log('[Mirror] Loading user photo from:', path);
 
+    // 0. Check if file exists first to avoid 400 errors
     try {
+      const { data: listData, error: listError } = await supabase.storage
+        .from('user_photos')
+        .list(user.id, {
+          limit: 1,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+          search: 'reference.jpg'
+        });
+
+      if (listError) {
+        console.log('[Mirror] Error listing photos:', listError);
+        // If listing fails, we might as well skip download
+        return;
+      }
+
+      const fileExists = listData && listData.length > 0 && listData[0].name === 'reference.jpg';
+      if (!fileExists) {
+        console.log('[Mirror] No reference photo found (clean check).');
+        return;
+      }
+
+      // 1. Download if exists
       const { data, error } = await supabase.storage
         .from('user_photos')
         .download(path);
 
       if (error) {
-        console.warn('[Mirror] Photo verify/download error:', error);
-        // showToast('Failed to load photo', 'error'); // Optional: don't spam user if just missing
+        // Should not happen if check passed, but handle gracefully
+        console.warn('[Mirror] Unexpected download error:', error);
         throw error;
       }
 
@@ -102,22 +125,8 @@ export default function MirrorTab() {
         setUserPhoto(url);
       }
     } catch (error) {
-      // Photo doesn't exist yet
-      console.log('[Mirror] No user photo found or error:', error);
-
-      // Check for various 404 signatures
-      const is404 =
-        error.status === 404 ||
-        error.statusCode === 404 ||
-        error.status === 400 || // Supabase storage 400 = invalid path/missing
-        error.statusCode === 400 ||
-        error.code === '404' ||
-        (error.message && error.message.toLowerCase().includes('not found')) ||
-        (error.name === 'StorageUnknownError' && JSON.stringify(error) === '{}');
-
-      if (!is404) {
-        showToast('Error loading photo', 'error');
-      }
+      console.error('[Mirror] Error in photo load process:', error);
+      // Silent fail for user
     }
   };
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ClosetTab() {
-  const { user, isGuest, supabase, signIn } = useAuth();
+  const { user, supabase, signIn } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -11,11 +11,6 @@ export default function ClosetTab() {
   }, [user, supabase]);
 
   const loadItems = async () => {
-    if (isGuest) {
-      setLoading(false);
-      return;
-    }
-
     if (!user || !supabase) {
       setLoading(false);
       return;
@@ -37,19 +32,6 @@ export default function ClosetTab() {
       setLoading(false);
     }
   };
-
-  if (isGuest) {
-    return (
-      <div className="empty-state">
-        <div className="empty-state-icon">🔒</div>
-        <h3>Sign In to Save</h3>
-        <p>Create an account to build your digital closet and save browsing history.</p>
-        <button className="btn btn-primary" onClick={signIn} style={{ marginTop: '16px' }}>
-          Sign In
-        </button>
-      </div>
-    );
-  }
 
   if (loading) {
     return (

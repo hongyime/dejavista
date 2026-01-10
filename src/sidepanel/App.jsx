@@ -7,7 +7,7 @@ import ClosetTab from './components/ClosetTab';
 import SettingsTab from './components/SettingsTab';
 
 function AppContent() {
-  const { user, isGuest, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('mirror');
 
   if (loading) {
@@ -18,7 +18,7 @@ function AppContent() {
     );
   }
 
-  if (!user && !isGuest) {
+  if (!user) {
     return <SignIn />;
   }
 
