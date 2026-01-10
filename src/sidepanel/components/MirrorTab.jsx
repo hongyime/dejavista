@@ -112,7 +112,8 @@ export default function MirrorTab() {
         error.status === 400 || // Supabase storage 400 = invalid path/missing
         error.statusCode === 400 ||
         error.code === '404' ||
-        (error.message && error.message.toLowerCase().includes('not found'));
+        (error.message && error.message.toLowerCase().includes('not found')) ||
+        (error.name === 'StorageUnknownError' && JSON.stringify(error) === '{}');
 
       if (!is404) {
         showToast('Error loading photo', 'error');

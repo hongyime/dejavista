@@ -32,7 +32,29 @@ async function initSupabase() {
   }
 }
 
-initSupabase();
+// Listen for auth updates from side panel
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.supabaseSession && supabase) {
+    const session = changes.supabaseSession.newValue;
+    if (session) {
+      console.log('[DejaVista] Syncing session to background...');
+      supabase.auth.setSession(session);
+    } else {
+      console.log('[DejaVista] Clearing session in background...');
+      supabase.auth.signOut();
+    }
+  }
+});
+
+initSupabase().then(() => {
+  // Check for existing session
+  chrome.storage.local.get(['supabaseSession']).then(({ supabaseSession }) => {
+    if (supabaseSession && supabase) {
+      console.log('[DejaVista] Restoring session in background');
+      supabase.auth.setSession(supabaseSession);
+    }
+  });
+});
 
 // Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

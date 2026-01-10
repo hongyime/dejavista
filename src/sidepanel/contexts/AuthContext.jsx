@@ -44,12 +44,19 @@ export function AuthProvider({ children }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+
       if (session?.user) {
         // If user signs in, disable guest mode
         setIsGuest(false);
-        chrome.storage.local.set({ isGuestMode: false });
+        chrome.storage.local.set({
+          isGuestMode: false,
+          supabaseSession: session
+        });
+      } else if (event === 'SIGNED_OUT') {
+        // Clear session from storage
+        chrome.storage.local.remove('supabaseSession');
       }
     });
 
