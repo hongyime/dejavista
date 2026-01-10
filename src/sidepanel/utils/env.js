@@ -5,15 +5,15 @@ export function getEnvVar(key) {
   if (import.meta.env[key]) {
     return import.meta.env[key];
   }
-  
+
   // Fallback to window (if injected)
   if (typeof window !== 'undefined' && window.__ENV__?.[key]) {
     return window.__ENV__[key];
   }
-  
+
   return null;
 }
 
 export const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL') || '';
 export const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY') || '';
-export const VERCEL_API_URL = getEnvVar('VITE_VERCEL_API_URL') || '';
+export const VERCEL_API_URL = getEnvVar('VITE_VERCEL_API_URL') || 'https://dejavista.vercel.app';
