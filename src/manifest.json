@@ -3,6 +3,12 @@
   "name": "DejaView - AI Fashion Memory",
   "version": "1.0.0",
   "description": "AI Stylist that remembers your browsing history to recommend matching outfits",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": [
     "identity",
     "storage",
@@ -18,8 +24,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/gaze-tracker.js", "content/intent-scorer.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/gaze-tracker.js",
+        "content/intent-scorer.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -27,10 +38,19 @@
     "default_path": "sidepanel.html"
   },
   "action": {
-    "default_title": "Open DejaView"
+    "default_title": "Open DejaView",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
   },
   "oauth2": {
-    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-    "scopes": ["openid", "email", "profile"]
+    "client_id": "REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
   }
 }
