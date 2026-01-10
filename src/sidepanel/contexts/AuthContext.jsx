@@ -165,7 +165,16 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     if (!supabase) return;
     console.log('[DejaVista] Signing out...');
+
+    // Clear user state immediately for instant UI update
+    setUser(null);
+
+    // Sign out from Supabase
     await supabase.auth.signOut();
+
+    // Clear all local storage to reset extension state
+    await chrome.storage.local.clear();
+
     console.log('[DejaVista] ✓ Successfully signed out');
     showToast('Signed out', 'info');
   };
