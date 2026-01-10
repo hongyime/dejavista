@@ -43,7 +43,7 @@ export default async function handler(req, res) {
         const base64Data = image.split(',')[1] || image;
 
         const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
