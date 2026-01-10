@@ -96,22 +96,43 @@ async function handleBatchItems(items, tabId) {
   }
 
   try {
-    // 1. Deduplication: Check the last saved item
-    const { data: lastItems } = await supabase
-      .from('closet_items')
-      .select('url')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    // 1. Smart Deduplication: Check for same item in the last 15 minutes
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
-    // If matches last item, skip
-    if (lastItems && lastItems.length > 0 && lastItems[0].url === items[0].url) {
-      console.log('[DejaVista] Skipping duplicate item:', items[0].url);
+    // Fetch recent items to compare against
+    const { data: recentItems } = await supabase
+      .from('closet_items')
+      .select('url, meta')
+      .eq('user_id', session.user.id)
+      .gt('created_at', fifteenMinsAgo);
+
+    // Filter out duplicates from the incoming batch
+    const filteredItems = items.filter(newItem => {
+      const isDuplicate = recentItems?.some(recent => {
+        // Match by exact URL
+        const urlMatch = recent.url === newItem.url;
+        // OR match by Title + Brand (catches variants or tracking URL changes)
+        const titleMatch =
+          newItem.meta?.title &&
+          recent.meta?.title === newItem.meta?.title &&
+          recent.meta?.brand === newItem.meta?.brand;
+
+        return urlMatch || titleMatch;
+      });
+
+      if (isDuplicate) {
+        console.log('[DejaVista] Skipping duplicate item:', newItem.meta?.title || newItem.url);
+      }
+      return !isDuplicate;
+    });
+
+    if (filteredItems.length === 0) {
+      console.log('[DejaVista] All items in batch were duplicates - skipping.');
       return;
     }
 
-    // Insert items in batch
-    const itemsToInsert = items.map(item => ({
+    // Insert filtered items
+    const itemsToInsert = filteredItems.map(item => ({
       user_id: session.user.id,
       url: item.url,
       meta: item.meta || {},

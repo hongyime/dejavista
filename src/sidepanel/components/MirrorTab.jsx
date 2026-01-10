@@ -185,7 +185,7 @@ export default function MirrorTab() {
     try {
       // Add timeout to prevent infinite loading
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // Increased to 20s // 10 second timeout
 
       const response = await fetch(`${VERCEL_API_URL}/api/ai/recommend`, {
         method: 'POST',
@@ -352,24 +352,41 @@ export default function MirrorTab() {
 
       {/* Currently Browsing Section */}
       <div className={`card ${recommendation ? 'card-ai' : ''}`}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-          <span style={{
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: 'var(--color-primary)',
-            fontWeight: 700
-          }}>
-            {isProduct ? 'Currently Browsing' : 'Suggested Items'}
-          </span>
-          <h3 style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: 600 }}>
-            {currentItem.title}
-          </h3>
-          {isProduct && currentItem.price && (
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', lineHeight: '1.6', fontWeight: 400 }}>
-              {currentItem.price}
-            </p>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+          {isProduct && currentItem.image && (
+            <img
+              src={currentItem.image}
+              alt={currentItem.title}
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: 'var(--radius-sm)',
+                objectFit: 'cover',
+                flexShrink: 0
+              }}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
           )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1 }}>
+            <span style={{
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'var(--color-primary)',
+              fontWeight: 700
+            }}>
+              {isProduct ? 'Currently Browsing' : 'Suggested Items'}
+            </span>
+            <h3 style={{ fontSize: '15px', lineHeight: '1.4', fontWeight: 600 }}>
+              {currentItem.title}
+            </h3>
+            {isProduct && currentItem.price && (
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', lineHeight: '1.4', fontWeight: 400 }}>
+                {currentItem.price}
+              </p>
+            )}
+          </div>
         </div>
 
         {loading && (
