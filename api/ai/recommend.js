@@ -32,32 +32,40 @@ export default async function handler(req, res) {
     console.log('[Recommend] Current item title:', currentItem.title || currentItem.meta?.title);
 
     // Construct prompt for Gemini
-    const prompt = `You are an expert high-end fashion stylist. Your goal is to curate exactly ONE recommendation from the user's "Fashion Memory" that perfectly complements the item they are currently browsing.
+    // Limit history to last 40 items to avoid token limits
+    const sanitizedHistory = historyItems.slice(0, 40).map(item => ({
+      id: item.id,
+      title: (item.meta?.title || 'Unknown').substring(0, 100),
+      brand: (item.meta?.brand || 'Unknown').substring(0, 50),
+      description: (item.meta?.description || 'N/A').substring(0, 200)
+    }));
+
+    const prompt = `You are an expert high-end fashion stylist. Your goal is to curate exactly ONE recommendation from the user's "Fashion Memory" (History) that perfectly complements the item they are currently browsing.
 
 Current Item:
-- Title: ${currentItem.title || currentItem.meta?.title || 'Unknown'}
-- Brand: ${currentItem.brand || currentItem.meta?.brand || 'Unknown'}
+- Title: ${(currentItem.title || currentItem.meta?.title || 'Unknown').substring(0, 100)}
+- Brand: ${(currentItem.brand || currentItem.meta?.brand || 'Unknown').substring(0, 50)}
 - Price: ${currentItem.price || 'Unknown'}
-- Description: ${currentItem.description || currentItem.meta?.description || 'N/A'}
+- Description: ${(currentItem.description || currentItem.meta?.description || 'N/A').substring(0, 200)}
 
 User's Fashion Memory (History):
-${historyItems.slice(0, 50).map((item, idx) =>
-      `${idx + 1}. ID: ${item.id}, Title: ${item.meta?.title || 'Unknown'}, Brand: ${item.meta?.brand || 'Unknown'}, Desc: ${item.meta?.description || 'N/A'}`
-    ).join('\n')}
+${sanitizedHistory.length > 0
+        ? sanitizedHistory.map((item, idx) => `${idx + 1}. ID: ${item.id}, Title: ${item.title}, Brand: ${item.brand}, Desc: ${item.description}`).join('\n')
+        : "The user's history is currently empty. Provide general fashion advice if possible, or return null for recommendedItemId."}
 
-STYLING PRINCIPLES TO FOLLOW:
-1. Color Coordination: Use color theory (complementary, analogous, or monochrome) to match items.
-2. Occasion Matching: If the current item is formal, recommend formal accessories or footwear.
-3. Texture & Fabric: Pair similar or complementary textures (e.g., silk with wool, denim with leather).
-4. Completism: Try to recommend items that "complete the look" (e.g., if browsing a top, recommend bottoms or bags).
+STYLING PRINCIPLES:
+1. Color Coordination (Complementary/Analogous)
+2. Occasion Matching (Formal vs Casual)
+3. Texture & Fabric Synergy
+4. Completism (Top + Bottom + Bag)
 
 Respond in JSON format ONLY:
 {
   "recommendedItemId": "uuid",
-  "reasoning": "A sophisticated stylist note explaining the fit/style synergy (max 15 words)"
+  "reasoning": "A sophisticated stylist note (max 15 words)"
 }
 
-If nothing fits well, set recommendedItemId to null.`;
+If nothing fits or history is empty, set recommendedItemId to null.`;
 
     // Call Gemini API - CORRECT MODEL: gemini-1.5-flash
     const geminiResponse = await fetch(
@@ -88,11 +96,17 @@ If nothing fits well, set recommendedItemId to null.`;
     }
 
     const geminiData = await geminiResponse.json();
-    let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{"recommendations": []}';
+    let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Robust Sanitization: strip markdown code blocks if present
-    if (responseText.includes('```')) {
-      responseText = responseText.replace(/```json\n?|```/g, '').trim();
+    if (!responseText) {
+      console.log('[Recommend] Empty response from Gemini');
+      return res.status(200).json({ recommendation: null });
+    }
+
+    // Defensive JSON Extraction (Regex to find anything between { and })
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      responseText = jsonMatch[0];
     }
 
     let result = { recommendedItemId: null, reasoning: 'No match found.' };
@@ -100,16 +114,23 @@ If nothing fits well, set recommendedItemId to null.`;
       result = JSON.parse(responseText.trim());
     } catch (parseError) {
       console.error('[Recommend] JSON Parse Error:', parseError, 'Raw text:', responseText);
+      // Try one more time to clean up markdown if present
+      const cleaned = responseText.replace(/```json\n?|```/g, '').trim();
+      try {
+        result = JSON.parse(cleaned);
+      } catch (e2) {
+        console.error('[Recommend] Final JSON Parse Attempt Failed');
+      }
     }
 
     // Merge history details for the single recommendation
     let finalRecommendation = null;
-    if (result.recommendedItemId) {
+    if (result.recommendedItemId && result.recommendedItemId !== "null") {
       const item = historyItems.find(h => String(h.id) === String(result.recommendedItemId));
       if (item) {
         finalRecommendation = {
           ...item,
-          reasoning: result.reasoning
+          reasoning: result.reasoning?.substring(0, 100) || 'Perfect pair!'
         };
       }
     }
