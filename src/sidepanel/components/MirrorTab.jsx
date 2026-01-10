@@ -111,8 +111,10 @@ export default function MirrorTab() {
             return;
           }
         } catch (err) {
-          // Content script might not be loaded or ready
-          console.log('[Mirror] Active query failed:', err);
+          // Silent fallback for connection errors (common on new tabs/chrome://)
+          if (!err.message?.includes('Could not establish connection')) {
+            console.log('[Mirror] Active query failed:', err);
+          }
         }
       }
 
@@ -308,7 +310,11 @@ export default function MirrorTab() {
       }
     } catch (error) {
       console.error('Error generating try-on:', error);
-      showToast(error.message || 'Failed to generate try-on', 'error');
+      // More descriptive error for 500s
+      const errMsg = error.message?.includes('500')
+        ? 'AI Server Error (500). Please check Vercel logs.'
+        : error.message;
+      showToast(errMsg || 'Failed to generate try-on', 'error');
     } finally {
       setGenerating(false);
     }
