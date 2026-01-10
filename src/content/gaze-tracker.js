@@ -67,6 +67,19 @@
     // Brand: domain or meta tags
     meta.brand = window.location.hostname;
 
+    // Strict Product Verification (as requested)
+    let score = 0;
+    const bodyTextLower = bodyText.toLowerCase();
+
+    if (document.querySelector('meta[property="og:type"][content="product"]')) score += 5;
+    if (/add to cart|add to bag|buy now/i.test(bodyTextLower)) score += 2;
+    if (document.querySelector('select[name*="size" i], .size-selector, #size-selector')) score += 2;
+    if (bodyTextLower.includes('size guide') || bodyTextLower.includes('size table')) score += 1;
+    if (document.querySelector('.color-picker, [class*="color-swatch"]')) score += 1;
+    if (bodyTextLower.includes('material') || bodyTextLower.includes('fabric')) score += 1;
+
+    meta.intentScore = score;
+
     return meta;
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { VERCEL_API_URL } from '../utils/env';
@@ -14,6 +14,12 @@ export default function MirrorTab() {
   const [generating, setGenerating] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
   const [loadingStep, setLoadingStep] = useState(0);
+
+  // Determine if the current item is a "verified product"
+  // Score >= 3 means we found things like Buy buttons, size selectors, materials etc.
+  const isProduct = useMemo(() => {
+    return currentItem?.intentScore >= 3;
+  }, [currentItem]);
 
   const loadingMessages = [
     "Checking size table exists...",
@@ -240,13 +246,10 @@ export default function MirrorTab() {
   };
 
   useEffect(() => {
-    if (currentItem && historyItems.length > 0) {
+    if (currentItem && isProduct && historyItems.length > 0) {
       getRecommendation();
     }
-  }, [currentItem, historyItems]);
-
-  // Determine if the current item is a "product" (has image OR price)
-  const isProduct = !!(currentItem?.image || currentItem?.price);
+  }, [currentItem, isProduct, historyItems]);
 
   // Handle Try On button click
   const handleTryOn = async () => {
@@ -431,36 +434,41 @@ export default function MirrorTab() {
           </div>
         )}
 
-        {recommendation?.matchedItemId && (
+        {/* AI Recommendations - Only show for verified products */}
+        {isProduct && (
           <>
-            <div className="ai-reasoning">{recommendation.reasoning}</div>
-            <button
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '16px' }}
-              onClick={handleTryOn}
-              disabled={generating || !userPhoto}
-            >
-              {generating ? 'Generating...' : 'Try On'}
-            </button>
+            {recommendation?.matchedItemId && (
+              <>
+                <div className="ai-reasoning">{recommendation.reasoning}</div>
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%', marginTop: '16px' }}
+                  onClick={handleTryOn}
+                  disabled={generating || !userPhoto}
+                >
+                  {generating ? 'Generating...' : 'Try On'}
+                </button>
+              </>
+            )}
+
+            {recommendation && !recommendation.matchedItemId && (
+              <div className="ai-reasoning">
+                {recommendation.reasoning || 'No matching items found in your browsing history.'}
+              </div>
+            )}
+
+            {/* Show Try On button even without recommendation if it's a verified product */}
+            {!recommendation?.matchedItemId && userPhoto && (
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', marginTop: '16px' }}
+                onClick={handleTryOn}
+                disabled={generating}
+              >
+                {generating ? 'Generating...' : 'Try On'}
+              </button>
+            )}
           </>
-        )}
-
-        {recommendation && !recommendation.matchedItemId && (
-          <div className="ai-reasoning">
-            {recommendation.reasoning || 'No matching items found in your browsing history.'}
-          </div>
-        )}
-
-        {/* Show Try On button even without recommendation if it's a product */}
-        {isProduct && !recommendation?.matchedItemId && userPhoto && (
-          <button
-            className="btn btn-primary"
-            style={{ width: '100%', marginTop: '16px' }}
-            onClick={handleTryOn}
-            disabled={generating}
-          >
-            {generating ? 'Generating...' : 'Try On'}
-          </button>
         )}
       </div>
     </div>

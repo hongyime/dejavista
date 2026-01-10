@@ -4,6 +4,10 @@
 
   const INTENT_THRESHOLD = 3;
 
+  function isContextValid() {
+    return !!(chrome.runtime && chrome.runtime.id);
+  }
+
   function calculateIntentScore() {
     let score = 0;
 
@@ -49,6 +53,21 @@
       }
     });
 
+    // Check for size guide / table (+1 point)
+    if (bodyText.includes('size guide') || bodyText.includes('size table') || bodyText.includes('size chart')) {
+      score += 1;
+    }
+
+    // Check for color variations (+1 point)
+    if (document.querySelector('.color-picker, [class*="color-swatch"], [id*="color-swatch"]')) {
+      score += 1;
+    }
+
+    // Check for materials (+1 point)
+    if (bodyText.includes('material') || bodyText.includes('fabric') || bodyText.includes('composition')) {
+      score += 1;
+    }
+
     return score;
   }
 
@@ -91,22 +110,32 @@
       }
     }
 
+    // Verification Score
+    meta.intentScore = calculateIntentScore();
+
     return meta;
   }
 
   // Create and inject Floating Action Button
   function showNotification(product) {
+    if (!isContextValid()) return;
+
     // Check if already exists
     if (document.getElementById('dejavista-fab')) return;
 
     const fab = document.createElement('div');
     fab.id = 'dejavista-fab';
-    fab.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <img src="${chrome.runtime.getURL('icons/icon48.png')}" style="width: 24px; height: 24px;">
-        <span>View Match</span>
-      </div>
-    `;
+
+    try {
+      fab.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="${chrome.runtime.getURL('icons/icon48.png')}" style="width: 24px; height: 24px;">
+          <span>View Match</span>
+        </div>
+      `;
+    } catch (e) {
+      return; // Context invalidated
+    }
 
     // Styles
     Object.assign(fab.style, {
@@ -130,29 +159,51 @@
     });
 
     fab.onclick = () => {
+      if (!isContextValid()) {
+        fab.remove();
+        return;
+      }
+
       console.log('[DejaVista] FAB clicked, sending OPEN_SIDE_PANEL message');
-      chrome.runtime.sendMessage({
-        type: 'OPEN_SIDE_PANEL',
-        product: product,
-      });
-      fab.style.transform = 'translateY(100px)'; // Hide after click
+      try {
+        chrome.runtime.sendMessage({
+          type: 'OPEN_SIDE_PANEL',
+          product: product,
+        });
+        fab.style.transform = 'translateY(100px)'; // Hide after click
+      } catch (e) {
+        console.log('[DejaVista] Failed to send message (context invalidated)');
+        fab.remove();
+      }
     };
 
     document.body.appendChild(fab);
 
     // Animate in
     setTimeout(() => {
-      fab.style.transform = 'translateY(0)';
+      if (fab.parentNode) {
+        fab.style.transform = 'translateY(0)';
+      }
     }, 100);
   }
 
   // Calculate score after page load
   setTimeout(() => {
-    const score = calculateIntentScore();
+    if (!isContextValid()) return;
 
-    if (score > INTENT_THRESHOLD) {
-      const currentProduct = extractCurrentProduct();
-      showNotification(currentProduct);
+    try {
+      const score = calculateIntentScore();
+
+      if (score > INTENT_THRESHOLD) {
+        const currentProduct = extractCurrentProduct();
+        showNotification(currentProduct);
+      }
+    } catch (e) {
+      if (e.message && e.message.includes('Extension context invalidated')) {
+        console.log('[DejaVista] Context invalidated, stopping scorer.');
+      } else {
+        console.error('[DejaVista] Scorer error:', e);
+      }
     }
   }, 1000); // Wait 1s for page to fully load
 })();

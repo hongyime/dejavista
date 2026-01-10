@@ -96,32 +96,24 @@ async function handleBatchItems(items, tabId) {
   }
 
   try {
-    // 1. Smart Deduplication: Check for same item in the last 15 minutes
-    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-
-    // Fetch recent items to compare against
-    const { data: recentItems } = await supabase
+    // 1. Strict Deduplication: Check for same title in recent history
+    // We check the last 100 items for this user to ensure uniqueness by title
+    const { data: existingItems } = await supabase
       .from('closet_items')
-      .select('url, meta')
+      .select('meta')
       .eq('user_id', session.user.id)
-      .gt('created_at', fifteenMinsAgo);
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     // Filter out duplicates from the incoming batch
     const filteredItems = items.filter(newItem => {
-      const isDuplicate = recentItems?.some(recent => {
-        // Match by exact URL
-        const urlMatch = recent.url === newItem.url;
-        // OR match by Title + Brand (catches variants or tracking URL changes)
-        const titleMatch =
-          newItem.meta?.title &&
-          recent.meta?.title === newItem.meta?.title &&
-          recent.meta?.brand === newItem.meta?.brand;
-
-        return urlMatch || titleMatch;
+      const isDuplicate = existingItems?.some(recent => {
+        // Match strictly by Title (as requested)
+        return newItem.meta?.title && recent.meta?.title === newItem.meta?.title;
       });
 
       if (isDuplicate) {
-        console.log('[DejaVista] Skipping duplicate item:', newItem.meta?.title || newItem.url);
+        console.log('[DejaVista] Skipping title duplicate:', newItem.meta?.title);
       }
       return !isDuplicate;
     });
@@ -145,10 +137,9 @@ async function handleBatchItems(items, tabId) {
     if (error) {
       console.error('[DejaVista] ✗ Error inserting items:', error);
     } else {
-      console.log(`[DejaVista] ✓ Successfully synced ${items.length} items`);
+      console.log(`[DejaVista] ✓ Successfully synced ${filteredItems.length} items`);
 
       // 2. Auto-Cleanup: Keep only last 50 items
-      // We don't need to await this, let it run in background
       cleanupOldItems(session.user.id);
     }
   } catch (error) {
