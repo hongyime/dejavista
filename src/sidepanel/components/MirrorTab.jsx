@@ -499,21 +499,18 @@ export default function MirrorTab() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '16px'
+            marginBottom: '12px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>🧠</span>
-              <h3 style={{
-                fontSize: '14px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: 'var(--color-text-secondary)',
-                margin: 0
-              }}>
-                Recommended from memory
-              </h3>
-            </div>
+            <h3 style={{
+              fontSize: '14px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'var(--color-text-secondary)',
+              margin: 0
+            }}>
+              Recommended from memory
+            </h3>
             {historyItems.length > 0 && !loading && (
               <button
                 onClick={getRecommendation}
@@ -552,52 +549,60 @@ export default function MirrorTab() {
               border: '1px dashed var(--color-border)'
             }}>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', margin: 0 }}>
-                No subtle matches in your history yet. <br />
+                No matches in your memory yet. <br />
                 Try browsing other items!
               </p>
             </div>
-          ) : (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-3)'
-            }}>
-              {recommendations.map((rec) => (
-                <div key={rec.id} className="card card-ai" style={{ padding: 'var(--space-3)' }}>
-                  <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-                    {rec.meta?.image && (
-                      <img
-                        src={rec.meta.image}
-                        alt={rec.meta.title}
-                        style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: 'var(--radius-sm)',
-                          objectFit: 'cover',
-                          flexShrink: 0
-                        }}
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                      />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h4 style={{
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        marginBottom: '4px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>
-                        {rec.meta.title}
-                      </h4>
-                      <div className="ai-reasoning" style={{ margin: 0, padding: '8px', fontSize: '12px' }}>
-                        {rec.reasoning}
-                      </div>
-                    </div>
-                  </div>
+          ) : recommendations.length > 0 && (
+            <div className="card card-ai">
+              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+                {recommendations[0].meta?.image && (
+                  <img
+                    src={recommendations[0].meta.image}
+                    alt={recommendations[0].meta.title}
+                    style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: 'var(--radius-sm)',
+                      objectFit: 'cover',
+                      flexShrink: 0
+                    }}
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                  />
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--color-primary)',
+                    fontWeight: 700
+                  }}>
+                    Style Match
+                  </span>
+                  <h4 style={{
+                    fontSize: '15px',
+                    lineHeight: '1.4',
+                    fontWeight: 600,
+                    margin: 0,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}>
+                    {recommendations[0].meta.title}
+                  </h4>
+                  {recommendations[0].meta.price && (
+                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', margin: 0 }}>
+                      {recommendations[0].meta.price}
+                    </p>
+                  )}
                 </div>
-              ))}
+              </div>
+              <div className="ai-reasoning" style={{ marginTop: '16px' }}>
+                {recommendations[0].reasoning}
+              </div>
             </div>
           )}
         </div>

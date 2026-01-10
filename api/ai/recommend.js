@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     console.log('[Recommend] Processing recommendation for user:', userId);
 
     // Construct prompt for Gemini
-    const prompt = `You are an expert high-end fashion stylist. Your goal is to curate a list of local recommendations from the user's "Fashion Memory" that perfectly complement the item they are currently browsing.
+    const prompt = `You are an expert high-end fashion stylist. Your goal is to curate exactly ONE recommendation from the user's "Fashion Memory" that perfectly complements the item they are currently browsing.
 
 Current Item:
 - Title: ${currentItem.title || currentItem.meta?.title || 'Unknown'}
@@ -51,16 +51,11 @@ STYLING PRINCIPLES TO FOLLOW:
 
 Respond in JSON format ONLY:
 {
-  "recommendations": [
-    {
-      "itemId": "uuid",
-      "reasoning": "A sophisticated stylist note explaining the fit/style synergy (max 15 words)"
-    },
-    ...
-  ]
+  "recommendedItemId": "uuid",
+  "reasoning": "A sophisticated stylist note explaining the fit/style synergy (max 15 words)"
 }
 
-Only return recommendations if they truly work. If nothing fits well, return an empty array.`;
+If nothing fits well, set recommendedItemId to null.`;
 
     // Call Gemini API - CORRECT MODEL: gemini-1.5-flash
     const geminiResponse = await fetch(
@@ -95,34 +90,33 @@ Only return recommendations if they truly work. If nothing fits well, return an 
       responseText = responseText.replace(/```json\n?|```/g, '').trim();
     }
 
-    let result = { recommendations: [] };
+    let result = { recommendedItemId: null, reasoning: 'No match found.' };
     try {
       result = JSON.parse(responseText.trim());
     } catch (parseError) {
       console.error('[Recommend] JSON Parse Error:', parseError, 'Raw text:', responseText);
-      // Fallback to empty if Gemini returns invalid JSON
     }
 
-    // Merge history details back into recommendations for the UI
-    const detailedRecommendations = (result.recommendations || [])
-      .map(rec => {
-        // Ensure we are matching IDs correctly (uuid string comparison)
-        const item = historyItems.find(h => String(h.id) === String(rec.itemId));
-        if (!item) return null;
-        return {
+    // Merge history details for the single recommendation
+    let finalRecommendation = null;
+    if (result.recommendedItemId) {
+      const item = historyItems.find(h => String(h.id) === String(result.recommendedItemId));
+      if (item) {
+        finalRecommendation = {
           ...item,
-          reasoning: rec.reasoning
+          reasoning: result.reasoning
         };
-      })
-      .filter(Boolean);
+      }
+    }
 
-    console.log('[Recommend] Generated', detailedRecommendations.length, 'recommendations');
+    console.log('[Recommend] Recommendation generated:', finalRecommendation ? finalRecommendation.meta?.title : 'None');
 
     return res.status(200).json({
-      recommendations: detailedRecommendations,
-      // Keep legacy fields for backward compatibility
-      matchedItemId: detailedRecommendations[0]?.id || null,
-      reasoning: detailedRecommendations[0]?.reasoning || 'No matches found.'
+      recommendation: finalRecommendation,
+      recommendations: finalRecommendation ? [finalRecommendation] : [], // Backwards compatibility if needed
+      // Keep legacy fields
+      matchedItemId: finalRecommendation?.id || null,
+      reasoning: finalRecommendation?.reasoning || 'No matches found.'
     });
   } catch (error) {
     console.error('[Recommend] Fatal Error:', error);
