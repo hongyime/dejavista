@@ -26,8 +26,17 @@ export default async function handler(req, res) {
   // Check if we have any AI credentials
   const hasVertexAICreds = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
   
+  console.log('[Recommend] Credentials check:', {
+    hasGeminiKey: !!geminiApiKey,
+    hasVertexCreds: hasVertexAICreds,
+    geminiKeyLength: geminiApiKey?.length || 0
+  });
+  
   if (!geminiApiKey && !hasVertexAICreds) {
-    return res.status(500).json({ error: 'No AI credentials configured (neither GEMINI_API_KEY nor GOOGLE_APPLICATION_CREDENTIALS)' });
+    return res.status(500).json({ 
+      error: 'No AI credentials configured',
+      details: 'Please set either GEMINI_API_KEY or GOOGLE_APPLICATION_CREDENTIALS in Vercel environment variables'
+    });
   }
 
   try {
@@ -80,19 +89,28 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
         console.log('[Recommend] Using Google AI SDK (API key)...');
         const googleAI = await initGoogleAI();
         if (!googleAI) {
-          throw new Error('Google AI SDK initialization failed');
+          console.error('[Recommend] Google AI SDK returned null - check GEMINI_API_KEY');
+          throw new Error('Google AI SDK initialization returned null - verify GEMINI_API_KEY is set correctly');
         }
         const model = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
-        console.log('[Recommend] Successfully got response from Google AI SDK');
+        console.log('[Recommend] Successfully got response from Google AI SDK, length:', responseText.length);
       } catch (googleAIError) {
-        console.warn('[Recommend] Google AI SDK failed:', googleAIError.message);
-        // Fall through to Vertex AI if available
+        console.error('[Recommend] Google AI SDK failed:', googleAIError.message);
+        console.error('[Recommend] Error stack:', googleAIError.stack);
+        // Only fall through to Vertex AI if credentials are available
         if (!hasVertexAICreds) {
-          throw new Error(`AI service unavailable: ${googleAIError.message}`);
+          return res.status(500).json({
+            error: 'AI service unavailable',
+            details: `Google AI SDK failed: ${googleAIError.message}. Please check GEMINI_API_KEY in Vercel environment variables.`,
+            suggestion: 'Set GEMINI_API_KEY in Vercel Dashboard > Settings > Environment Variables'
+          });
         }
+        console.log('[Recommend] Falling back to Vertex AI...');
       }
+    } else {
+      console.warn('[Recommend] GEMINI_API_KEY not set, will try Vertex AI if credentials available');
     }
     
     // Try Vertex AI if Google AI SDK failed or wasn't available
