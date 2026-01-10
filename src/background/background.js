@@ -95,6 +95,20 @@ async function handleBatchItems(items, tabId) {
   }
 
   try {
+    // 1. Deduplication: Check the last saved item
+    const { data: lastItems } = await supabase
+      .from('closet_items')
+      .select('url')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    // If matches last item, skip
+    if (lastItems && lastItems.length > 0 && lastItems[0].url === items[0].url) {
+      console.log('[DejaVista] Skipping duplicate item:', items[0].url);
+      return;
+    }
+
     // Insert items in batch
     const itemsToInsert = items.map(item => ({
       user_id: session.user.id,
@@ -110,9 +124,46 @@ async function handleBatchItems(items, tabId) {
       console.error('[DejaVista] ✗ Error inserting items:', error);
     } else {
       console.log(`[DejaVista] ✓ Successfully synced ${items.length} items`);
+
+      // 2. Auto-Cleanup: Keep only last 50 items
+      // We don't need to await this, let it run in background
+      cleanupOldItems(session.user.id);
     }
   } catch (error) {
     console.error('[DejaVista] ✗ Error handling batch items:', error);
+  }
+}
+
+async function cleanupOldItems(userId) {
+  try {
+    // Simple strategy: Delete items where ID is NOT in the top 50
+    // Note: detailed "limit offset" delete is tricky in Supabase without a stored procedure
+    // Simpler approach: Fetch the 50th item's timestamp and delete anything older.
+
+    const { data } = await supabase
+      .from('closet_items')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (data && data.length === 50) {
+      const oldestKeptDate = data[49].created_at;
+
+      const { error: deleteError } = await supabase
+        .from('closet_items')
+        .delete()
+        .eq('user_id', userId)
+        .lt('created_at', oldestKeptDate);
+
+      if (deleteError) {
+        console.error('[DejaVista] Error cleaning up old items:', deleteError);
+      } else {
+        console.log('[DejaVista] Cleaned up old memory items');
+      }
+    }
+  } catch (err) {
+    console.error('[DejaVista] Cleanup failed:', err);
   }
 }
 
