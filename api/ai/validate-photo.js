@@ -40,7 +40,10 @@ export default async function handler(req, res) {
     }`;
 
         // Initialize Vertex AI with robust auth and fallback
-        const project = process.env.GOOGLE_CLOUD_PROJECT_ID || 'gen-lang-client-0209105478';
+        const project = process.env.GOOGLE_CLOUD_PROJECT_ID;
+        if (!project) {
+            console.warn('[Validate] GOOGLE_CLOUD_PROJECT_ID not set, Vertex AI fallback may fail.');
+        }
         const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
 
         const { initVertexAI, initGoogleAI } = await import('./utils/auth.js');
@@ -83,7 +86,7 @@ export default async function handler(req, res) {
             // Fallback to Google AI SDK
             console.log('[Validate] Using Google AI SDK (fallback)...');
             const genAI = await initGoogleAI();
-            
+
             if (!genAI) {
                 throw new Error('Neither Vertex AI nor Google AI SDK available');
             }

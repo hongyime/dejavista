@@ -239,23 +239,45 @@
     }, 100);
   }
 
-  // Calculate score after page load
-  setTimeout(() => {
+  // Improved SPA Support & Execution Logic
+  function runScorer() {
     if (!isContextValid()) return;
 
-    try {
-      const score = calculateIntentScore();
+    // Debounce to avoid running multiple times during rapid DOM changes
+    if (window.dejavistaScorerTimeout) clearTimeout(window.dejavistaScorerTimeout);
 
-      if (score > INTENT_THRESHOLD) {
-        const currentProduct = extractCurrentProduct();
-        showNotification(currentProduct);
+    window.dejavistaScorerTimeout = setTimeout(() => {
+      try {
+        // Remove existing FAB to prevent duplicates on navigation
+        const existingFab = document.getElementById('dejavista-fab');
+        if (existingFab) existingFab.remove();
+
+        const score = calculateIntentScore();
+        if (score > INTENT_THRESHOLD) {
+          const currentProduct = extractCurrentProduct();
+          showNotification(currentProduct);
+        }
+      } catch (e) {
+        if (e.message && e.message.includes('Extension context invalidated')) {
+          console.log('[DejaVista] Context invalidated, stopping scorer.');
+        } else {
+          console.error('[DejaVista] Scorer error:', e);
+        }
       }
-    } catch (e) {
-      if (e.message && e.message.includes('Extension context invalidated')) {
-        console.log('[DejaVista] Context invalidated, stopping scorer.');
-      } else {
-        console.error('[DejaVista] Scorer error:', e);
-      }
+    }, 1000);
+  }
+
+  // 1. Run on initial load
+  runScorer();
+
+  // 2. Watch for URL changes (SPA Navigation)
+  let lastUrl = location.href;
+  new MutationObserver(() => {
+    const url = location.href;
+    if (url !== lastUrl) {
+      lastUrl = url;
+      console.log('[DejaVista] URL changed, re-running scorer...');
+      runScorer();
     }
-  }, 1000); // Wait 1s for page to fully load
+  }).observe(document, { subtree: true, childList: true });
 })();

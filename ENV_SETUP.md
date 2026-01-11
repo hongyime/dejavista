@@ -16,6 +16,14 @@ This error occurs because the `.env` file is missing or the extension wasn't reb
    VITE_SUPABASE_URL=https://your-project.supabase.co
    VITE_SUPABASE_ANON_KEY=your-anon-key-here
    VITE_VERCEL_API_URL=https://dejavista.vercel.app
+   
+   # SERVER-SIDE VARIABLES (Vercel / Local Backend)
+   # NEVER include these in client-side builds or commit to git
+   GEMINI_API_KEY=your-gemini-api-key
+   GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+   # GOOGLE_APPLICATION_CREDENTIALS is usually auto-handled by Vercel/GCP, 
+   # but if running locally, point to your service-account.json
+   # GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
    ```
 
 ### Step 2: Get Your Supabase Credentials
@@ -47,7 +55,17 @@ npm run build
 - The `.env` file must exist **before** running `npm run build`
 - If you update `.env` after building, you need to rebuild
 
+4. Reload the extension in Chrome
+
+## Critical Security Warning
+
+The backend APIs (`/api/ai/*`) rely on Google Cloud processing.
+You **MUST** set `GOOGLE_CLOUD_PROJECT_ID` in your Vercel Environment Variables.
+Older versions of this code had a hardcoded fallback ID which has been removed for security.
+If you see errors like "GOOGLE_CLOUD_PROJECT_ID environment variable is missing", this is why.
+
 ## Verification
+
 
 After rebuilding, check the console:
 - ✅ No "Missing Supabase environment variables" error

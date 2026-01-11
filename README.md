@@ -32,6 +32,8 @@ That's it! The extension is ready to use.
 2. **Configure environment:**
    - Copy `.env.example` to `.env`
    - Fill in your Supabase and Google Cloud credentials
+   - **CRITICAL:** Ensure `GOOGLE_CLOUD_PROJECT_ID` and `GEMINI_API_KEY` are set for backend features.
+     (See [ENV_SETUP.md](./ENV_SETUP.md) for full list)
 
 3. **Build extension:**
    ```bash

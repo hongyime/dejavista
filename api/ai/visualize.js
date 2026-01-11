@@ -23,7 +23,25 @@ export default async function handler(req, res) {
     const jobId = `job_${Date.now()}`;
 
     // 1. Download User Photo (Validation)
-    const photoPath = userPhotoUrl.split('/').slice(-2).join('/');
+    // Robust path extraction that handles query params or full URLs
+    let photoPath;
+    try {
+      const urlObj = new URL(userPhotoUrl);
+      // Extract everything after /user_photos/
+      // Assuming path format: .../user_photos/USER_ID/FILENAME.jpg
+      const pathParts = urlObj.pathname.split('user_photos/');
+      if (pathParts.length > 1) {
+        photoPath = pathParts[1];
+      } else {
+        // Fallback for unexpected URL structure, try to grab last 2 segments
+        photoPath = userPhotoUrl.split('/').slice(-2).join('/');
+      }
+      // Decode URI component to handle spaces/special chars
+      photoPath = decodeURIComponent(photoPath);
+    } catch (e) {
+      // Fallback if not a valid URL string
+      photoPath = userPhotoUrl.split('/').slice(-2).join('/');
+    }
     console.log('[Visualize] Validating existence of:', photoPath);
 
     // We check existence first

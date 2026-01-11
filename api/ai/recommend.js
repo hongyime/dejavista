@@ -29,8 +29,8 @@ export default async function handler(req, res) {
   console.log('[Recommend] Credentials check:', {
     hasGeminiKey: !!geminiApiKey,
     hasVertexCreds: hasVertexAICreds,
-    geminiKeyLength: geminiApiKey?.length || 0,
-    geminiKeyPrefix: geminiApiKey ? geminiApiKey.substring(0, 10) + '...' : 'missing'
+    // SECURITY: Never log full keys
+    geminiKeyPrefix: geminiApiKey ? '****' + geminiApiKey.slice(-4) : 'missing'
   });
   
   // Prefer GEMINI_API_KEY - fail fast if it's missing
@@ -82,7 +82,7 @@ STYLING PRINCIPLES:
 Respond in JSON format ONLY:
 {
   "recommendedItemId": "uuid",
-  "reasoning": "A sophisticated stylist note (max 15 words)"
+  "reasoning": "A concise stylist note (max 15 words)"
 }
 
 If nothing fits or history is empty, set recommendedItemId to null.`;
@@ -110,7 +110,7 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
         if (!hasVertexAICreds) {
           return res.status(500).json({
             error: 'AI service unavailable',
-            details: `Google AI SDK failed: ${googleAIError.message}. Please check GEMINI_API_KEY in Vercel environment variables.`,
+            details: `Google AI SDK failed. Please check GEMINI_API_KEY in Vercel environment variables.`,
             suggestion: 'Set GEMINI_API_KEY in Vercel Dashboard > Settings > Environment Variables'
           });
         }
@@ -124,8 +124,13 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
     if (!responseText && hasVertexAICreds) {
       try {
         console.log('[Recommend] Attempting Vertex AI...');
-        const project = process.env.GOOGLE_CLOUD_PROJECT_ID || 'gen-lang-client-0209105478';
+        const project = process.env.GOOGLE_CLOUD_PROJECT_ID; 
         const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
+        
+        if (!project) {
+             throw new Error('GOOGLE_CLOUD_PROJECT_ID environment variable is missing.');
+        }
+
         const authOptions = getVertexAIAuthOptions();
         
         if (!authOptions.credentials) {
