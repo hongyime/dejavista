@@ -88,7 +88,7 @@ Respond in JSON format ONLY:
 If nothing fits or history is empty, set recommendedItemId to null.`;
 
     let responseText = '';
-    
+
     // Prefer Google AI SDK (simpler, more reliable) if API key is available
     // Only use Vertex AI if no API key but Vertex AI credentials are available
     if (geminiApiKey) {
@@ -99,19 +99,65 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
           console.error('[Recommend] Google AI SDK returned null - check GEMINI_API_KEY');
           throw new Error('Google AI SDK initialization returned null - verify GEMINI_API_KEY is set correctly');
         }
-        const model = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-        const result = await model.generateContent(prompt);
-        responseText = result.response.text();
-        console.log('[Recommend] Successfully got response from Google AI SDK, length:', responseText.length);
+        const modelCandidates = [
+          'gemini-2.5-flash',
+          'gemini-flash-latest',
+          'gemini-1.5-flash',
+        ];
+        let lastError = null;
+
+        for (const modelId of modelCandidates) {
+          try {
+            console.log('[Recommend] Trying Gemini model:', modelId);
+            const model = googleAI.getGenerativeModel({ model: modelId });
+            const result = await model.generateContent(prompt);
+            responseText = result.response.text();
+            console.log(
+              '[Recommend] Successfully got response from Gemini model',
+              modelId,
+              'length:',
+              responseText.length
+            );
+            lastError = null;
+            break;
+          } catch (modelError) {
+            lastError = modelError;
+            const message = modelError?.message || String(modelError);
+            const lower = message.toLowerCase();
+            const isCapacityIssue =
+              message.includes('503 Service Unavailable') ||
+              lower.includes('high demand') ||
+              lower.includes('overloaded') ||
+              lower.includes('temporarily unavailable');
+            const isNotFound =
+              message.includes('404 Not Found') ||
+              lower.includes('not found') ||
+              lower.includes('is not found for api version');
+
+            console.warn('[Recommend] Gemini model failed:', modelId, '-', message);
+
+            if (!(isCapacityIssue || isNotFound)) {
+              break;
+            }
+          }
+        }
+
+        if (!responseText) {
+          throw new Error(lastError?.message || 'All Gemini models failed or were unavailable');
+        }
       } catch (googleAIError) {
-        console.error('[Recommend] Google AI SDK failed:', googleAIError.message);
+        console.error(
+          '[Recommend] Google AI SDK failed after trying multiple models:',
+          googleAIError.message
+        );
         console.error('[Recommend] Error stack:', googleAIError.stack);
         // Only fall through to Vertex AI if credentials are available
         if (!hasVertexAICreds) {
-          return res.status(500).json({
-            error: 'AI service unavailable',
-            details: `Google AI SDK failed. Please check GEMINI_API_KEY in Vercel environment variables.`,
-            suggestion: 'Set GEMINI_API_KEY in Vercel Dashboard > Settings > Environment Variables'
+          return res.status(200).json({
+            recommendation: null,
+            recommendations: [],
+            matchedItemId: null,
+            reasoning: 'AI temporarily unavailable. Please try again later.'
           });
         }
         console.log('[Recommend] Falling back to Vertex AI...');
@@ -140,7 +186,7 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
         const { VertexAI } = await import('@google-cloud/vertexai');
         const vertexAI = new VertexAI({ project, location, ...authOptions });
         const model = vertexAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-1.5-flash-001',
           generationConfig: {
             maxOutputTokens: 256,
             temperature: 0.7,

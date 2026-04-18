@@ -48,7 +48,7 @@ export default async function handler(req, res) {
                 return res.status(200).json({
                     jobId,
                     status: 'complete',
-                    imageUrl: null, // Would contain the generated image URL
+                    poses: [], // Would contain generated pose results
                     message: 'Generation complete. Note: This is a demo response.',
                 });
             }
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
             jobId,
             status: job.status,
-            imageUrl: job.imageUrl || null,
+            poses: job.poses || [],
             error: job.error || null,
         });
     } catch (error) {

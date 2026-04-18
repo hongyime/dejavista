@@ -102,6 +102,11 @@ export function getVertexAIAuthOptions() {
  */
 export async function initVertexAI(projectId, location = 'us-central1') {
   const authOptions = getVertexAIAuthOptions();
+
+  if (!projectId || !authOptions.credentials) {
+    console.warn('[Auth] Vertex AI credentials or projectId missing; using Google AI SDK fallback');
+    return { vertexAI: null, fallback: true };
+  }
   
   try {
     const { VertexAI } = await import('@google-cloud/vertexai');

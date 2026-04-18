@@ -10,13 +10,14 @@ export default async function handler(req, res) {
 
     const { image } = req.body; // Base64 image
     const geminiApiKey = process.env.GEMINI_API_KEY;
+    const hasVertexAICreds = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
     if (!image) {
         return res.status(400).json({ error: 'Missing image data' });
     }
 
-    if (!geminiApiKey) {
-        return res.status(500).json({ error: 'Gemini API key not configured' });
+    if (!geminiApiKey && !hasVertexAICreds) {
+        return res.status(500).json({ error: 'No Gemini or Vertex AI credentials configured' });
     }
 
     try {
@@ -91,7 +92,7 @@ export default async function handler(req, res) {
                 throw new Error('Neither Vertex AI nor Google AI SDK available');
             }
 
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
             const result = await model.generateContent([
                 prompt,
                 {
@@ -125,6 +126,24 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('[Validate] Fatal Error:', error);
+
+        const message = error?.message || String(error || '');
+        const lower = message.toLowerCase();
+        const isCapacityIssue =
+            message.includes('503 Service Unavailable') ||
+            lower.includes('high demand') ||
+            lower.includes('temporarily unavailable') ||
+            lower.includes('overloaded');
+
+        if (isCapacityIssue) {
+            console.warn('[Validate] Gemini temporarily unavailable. Auto-accepting photo.');
+            return res.status(200).json({
+                valid: true,
+                reasoning: 'AI temporarily unavailable; photo accepted without automatic validation.',
+                missingParts: []
+            });
+        }
+
         return res.status(500).json({
             error: 'Failed to validate photo',
             details: error.message
