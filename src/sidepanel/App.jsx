@@ -5,6 +5,7 @@ import Navigation from './components/Navigation';
 import MirrorTab from './components/MirrorTab';
 import ClosetTab from './components/ClosetTab';
 import SettingsTab from './components/SettingsTab';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -39,12 +40,14 @@ import ToastContainer from './components/ToastContainer';
 
 function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <AppContent />
-        <ToastContainer />
-      </AuthProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <AppContent />
+          <ToastContainer />
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

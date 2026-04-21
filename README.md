@@ -70,7 +70,7 @@ That's it! The extension is ready to use.
 - **Database:** Supabase (PostgreSQL)
 - **Storage:** Supabase Storage
 - **Auth:** Supabase Auth + Google OAuth
-- **AI:** Gemini, Vertex AI Imagen
+- **AI:** Google AI Gemini 2.5 Flash (reasoning), Gemini 3.1 Flash Image Preview (image generation)
 
 ## Documentation
 

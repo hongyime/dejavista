@@ -4,6 +4,34 @@ import { createClient } from '@supabase/supabase-js';
 // For now, we'll get them from storage (set during extension setup)
 let supabase = null;
 
+// ===============================
+// Input Sanitization (inline for content script)
+// ===============================
+function sanitizeString(value, maxLength = 200) {
+  if (typeof value !== 'string') return '';
+  let sanitized = value.replace(/<[^>]*>/g, '').trim();
+  if (sanitized.length > maxLength) sanitized = sanitized.substring(0, maxLength);
+  return sanitized;
+}
+
+function sanitizeUrl(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return '';
+  if (trimmed.length > 2048) return trimmed.substring(0, 2048);
+  return trimmed;
+}
+
+function sanitizeMeta(meta) {
+  if (!meta || typeof meta !== 'object') return {};
+  return {
+    title: sanitizeString(meta?.title, 200),
+    price: sanitizeString(meta?.price, 50),
+    brand: sanitizeString(meta?.brand, 100),
+    image: sanitizeUrl(meta?.image),
+  };
+}
+
 async function initSupabase() {
   console.log('[DejaVista] Initializing Supabase...');
 
@@ -123,11 +151,11 @@ async function handleBatchItems(items, tabId) {
       return;
     }
 
-    // Insert filtered items
+    // Insert filtered items (with sanitization for security)
     const itemsToInsert = filteredItems.map(item => ({
       user_id: session.user.id,
       url: item.url,
-      meta: item.meta || {},
+      meta: item.meta ? sanitizeMeta(item.meta) : {},
     }));
 
     const { error } = await supabase

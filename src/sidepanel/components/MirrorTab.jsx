@@ -1,4 +1,38 @@
-import React, { useEffect, useMemo, useState } from 'react';
+/**
+ * MirrorTab - Virtual Try-On Component
+ * @module components/MirrorTab
+ * @description Displays product recommendations and AI-powered virtual try-on functionality
+ * @see {@link module:types.ClosetItem}
+ * @see {@link module:types.Pose}
+ * @see {@link module:types.TryOnCache}
+ */
+
+/**
+ * @typedef {Object} MirrorTabProps
+ * @description MirrorTab does not accept props - uses global auth state
+ */
+
+/**
+ * @typedef {Object} MirrorTabState
+ * @property {ClosetItem|null} currentItem - Currently viewed product
+ * @property {string|null} userPhoto - User's uploaded reference photo URL
+ * @property {ClosetItem[]} historyItems - User's closet items
+ * @property {boolean} loadingRecommendation - Loading state for recommendation fetch
+ * @property {RecommendationResponse|null} recommendation - AI recommendation result
+ * @property {Pose[]} poses - Generated try-on poses
+ * @property {Pose|null} selectedPose - Currently selected pose for display
+ * @property {ClosetItem[]} accessories - Related accessory items
+ * @property {boolean} tryOnLoading - Loading state for try-on generation
+ * @property {string|null} tryOnError - Error message for try-on failures
+ * @property {boolean} tryOnFromCache - Whether poses were loaded from cache
+ */
+
+/**
+ * Hook into Chrome storage local for try-on cache
+ * @param {string} userId - User ID for cache key
+ * @param {string} itemKey - Product identifier (URL or image)
+ * @returns {Promise<TryOnCache|null>} Cached try-on data or null
+ */
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { VERCEL_API_URL } from '../utils/env';
@@ -17,6 +51,7 @@ export default function MirrorTab() {
   const [accessories, setAccessories] = useState([]);
   const [tryOnLoading, setTryOnLoading] = useState(false);
   const [tryOnError, setTryOnError] = useState(null);
+  const [tryOnFromCache, setTryOnFromCache] = useState(false);
 
   const isProduct = useMemo(() => (currentItem?.intentScore ?? 0) >= 2, [currentItem]);
 
@@ -129,9 +164,8 @@ export default function MirrorTab() {
         }
 
         setPoses(cached.poses);
-        const initialPose =
-          cached.poses.find((pose) => pose.id === cached.selectedPoseId) || cached.poses[0];
         setSelectedPose(initialPose);
+        setTryOnFromCache(true);
       } catch (error) {
         console.warn('[Mirror] Failed to restore cached try-on poses:', error);
       }
@@ -659,6 +693,35 @@ export default function MirrorTab() {
 
       {selectedPose && (
         <div className="card" style={{ marginTop: '16px' }}>
+          {tryOnFromCache && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginBottom: '8px',
+                fontSize: '12px',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              <span>📁</span>
+              <span>Cached result</span>
+              <button
+                onClick={() => handleTryOn(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-accent-action)',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  padding: '0',
+                  textDecoration: 'underline',
+                }}
+              >
+                Refresh
+              </button>
+            </div>
+          )}
           <img
             src={selectedPose.imageUrl}
             alt="AI try-on"

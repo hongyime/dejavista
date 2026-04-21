@@ -2,10 +2,14 @@
 (function () {
   'use strict';
 
+  // Import constants (will be bundled at build time)
   const TIME_THRESHOLD = 2000; // 2 seconds
   const SIZE_THRESHOLD = 200; // pixels
   const DEBOUNCE_ITEMS = 3;
   const DEBOUNCE_TIME = 5000; // 5 seconds
+  const REFERRER_POLICY = 'no-referrer';
+  const PRICE_PATTERN = /[\$£€¥]\s*[\d,]+\.?\d*/;
+  const MIN_IMAGE_SIZE = 50;
 
   const observedImages = new Map();
   const queuedItems = [];

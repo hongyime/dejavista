@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 import { Buffer } from 'node:buffer';
+import { visualizeLimiter } from './utils/rate-limit.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -35,6 +36,15 @@ export default async function handler(req, res) {
       error: 'Missing required field: items',
       details: 'items must be a non-empty array.',
     });
+  }
+
+  // Rate limiting check
+  const rateLimitResult = visualizeLimiter(userId);
+  if (rateLimitResult) {
+    Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
+    return res.status(429).json(rateLimitResult.body);
   }
 
   try {

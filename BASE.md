@@ -21,8 +21,8 @@ Chrome Extension that passively tracks viewed clothing items and uses GenAI to r
 - **Storage:** Supabase Storage (User photos)
 
 ### AI Services
-- **Reasoning:** Gemini 3 Pro Preview (`gemini-3-pro-preview`)
-- **Image Generation:** Google Vertex AI Imagen 3 (`imagen-3.0-generate-002`)
+- **Reasoning:** Google AI Gemini 2.5 Flash (`gemini-2.5-flash`) - fast, cost-effective reasoning
+- **Image Generation:** Google AI Gemini 3.1 Flash Image Preview (`gemini-3.1-flash-image-preview`) - virtual try-on and photo validation
 
 ---
 
@@ -99,7 +99,7 @@ Side Panel opens
   ↓
 Query Supabase: Latest 200 items for user
   ↓
-Send to Gemini 3 Pro: Current item + 200 history items
+Send to Gemini 2.5 Flash: Current item + 40 history items (token optimized)
   ↓
 Prompt: "Return ONE best matching item ID (JSON only)"
   ↓
@@ -206,10 +206,10 @@ chrome.identity.launchWebAuthFlow({
 
 ## Performance Optimization
 
-### Latest 200 Context Window
-- **Problem:** Querying 10,000+ items is slow
-- **Solution:** Only analyze recent 200 items (current shopping session)
-- **Implementation:** `ORDER BY created_at DESC LIMIT 200` in SQL query
+### Latest 40 Context Window
+- **Problem:** Querying 10,000+ items is slow; token limits with Gemini API
+- **Solution:** Only analyze recent 40 items (token budget optimized)
+- **Implementation:** `ORDER BY created_at DESC LIMIT 40` in SQL query
 
 ### Debounced Database Writes
 - **Problem:** Too many writes during rapid browsing
@@ -217,7 +217,7 @@ chrome.identity.launchWebAuthFlow({
 - **Location:** Content Script (not Service Worker to avoid sleep issues)
 
 ### Optimistic UI
-- **Problem:** Gemini 3 reasoning takes 3-5s
+- **Problem:** Gemini reasoning takes 3-5s
 - **Solution:** Show skeleton loader immediately, update on response
 - **Prompt Optimization:** Request "JSON only" output to reduce token generation
 
