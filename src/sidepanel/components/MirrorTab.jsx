@@ -1,3 +1,7 @@
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { VERCEL_API_URL } from '../utils/env';
+
 /**
  * MirrorTab - Virtual Try-On Component
  * @module components/MirrorTab
@@ -5,11 +9,6 @@
  * @see {@link module:types.ClosetItem}
  * @see {@link module:types.Pose}
  * @see {@link module:types.TryOnCache}
- */
-
-/**
- * @typedef {Object} MirrorTabProps
- * @description MirrorTab does not accept props - uses global auth state
  */
 
 /**
@@ -26,16 +25,6 @@
  * @property {string|null} tryOnError - Error message for try-on failures
  * @property {boolean} tryOnFromCache - Whether poses were loaded from cache
  */
-
-/**
- * Hook into Chrome storage local for try-on cache
- * @param {string} userId - User ID for cache key
- * @param {string} itemKey - Product identifier (URL or image)
- * @returns {Promise<TryOnCache|null>} Cached try-on data or null
- */
-import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
-import { VERCEL_API_URL } from '../utils/env';
 
 export default function MirrorTab() {
   const { user, supabase } = useAuth();
