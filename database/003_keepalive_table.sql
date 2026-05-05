@@ -17,14 +17,14 @@ CREATE INDEX IF NOT EXISTS idx_keepalive_pinged_at ON keepalive_logs(pinged_at);
 -- Enable RLS
 ALTER TABLE keepalive_logs ENABLE ROW LEVEL SECURITY;
 
--- Allow anonymous access for keepalive pings
-CREATE POLICY "Allow keepalive for anon"
+-- Allow service_role access for keepalive pings (uses service_role key)
+CREATE POLICY "Allow keepalive for service_role"
     ON keepalive_logs
     FOR ALL
-    TO anon
+    TO service_role
     USING (true)
     WITH CHECK (true);
 
 -- Explicit grants
-GRANT SELECT ON keepalive_logs TO anon;
-GRANT INSERT ON keepalive_logs TO anon;
+GRANT SELECT ON keepalive_logs TO service_role;
+GRANT INSERT ON keepalive_logs TO service_role;
