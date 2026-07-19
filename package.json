@@ -29,7 +29,9 @@
     "esbuild": "0.25.0",
     "minimatch": "3.1.5",
     "node-forge": "1.4.0",
+    "protobufjs": "7.6.5",
     "rollup": "4.59.0",
+    "ws": "8.21.1",
     "yaml": "2.8.3"
   }
 }
