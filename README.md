@@ -81,4 +81,4 @@ That's it! The extension is ready to use.
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE) for details
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
