@@ -32,9 +32,16 @@ Thumbs.db
 # Test coverage
 coverage/
 
+
 # AI / editor dot directories (managed via sourcerepo)
 .*
 !.github/
+!.agents/
+.agents/*
+!.agents/STATE.md
+!.agents/JOURNAL.md
+!.agents/handoffs/
+!.agents/handoffs/**
 !.gitignore
 !.gitattributes
 !.gitmodules
@@ -57,3 +64,7 @@ coverage/
 !.env.sample
 !.sourcery.yml
 !.deepsource.toml
+skills/
+skills-lock.json
+docs/
+# End AI / editor dot directories (managed via sourcerepo)
