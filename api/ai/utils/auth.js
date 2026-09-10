@@ -5,74 +5,24 @@
 
 /**
  * Parse GOOGLE_APPLICATION_CREDENTIALS from environment variable
- * Supports both JSON string and file path formats
+ * Supports raw, double-encoded or outer-single-quoted JSON; never reads a file path
  * 
  * @returns {Object|null} Credentials object or null if not available/invalid
  */
 export function parseGoogleCredentials() {
-  const credsEnv = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  
-  if (!credsEnv) {
-    console.warn('[Auth] GOOGLE_APPLICATION_CREDENTIALS environment variable is not set');
-    return null;
-  }
-
-  // Try parsing as JSON string first (common in Vercel/serverless)
+  const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!raw) return null;
   try {
-    // Handle both raw JSON and escaped JSON strings
-    let jsonString = credsEnv.trim();
-    
-    // Remove surrounding quotes if present
-    if ((jsonString.startsWith('"') && jsonString.endsWith('"')) ||
-        (jsonString.startsWith("'") && jsonString.endsWith("'"))) {
-      jsonString = JSON.parse(jsonString); // Unescape if needed
-    }
-    
-    // Remove newlines and normalize whitespace (common in .env files with multi-line JSON)
-    // Replace newlines with spaces, then collapse multiple spaces
-    jsonString = jsonString.replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' ');
-    jsonString = jsonString.replace(/\s+/g, ' ').trim();
-    
-    // Try to parse as JSON
-    const creds = JSON.parse(jsonString);
-    
-    // Validate it's a service account key
-    if (creds.type === 'service_account' && creds.project_id && creds.private_key) {
-      console.log('[Auth] Successfully parsed service account credentials');
-      return creds;
-    }
-    console.warn('[Auth] GOOGLE_APPLICATION_CREDENTIALS is not a valid service account key');
-    return null;
-  } catch (parseError) {
-    // If JSON parsing fails, it might be a file path (not supported in serverless)
-    if (credsEnv.startsWith('/') || credsEnv.includes('\\')) {
-      console.warn('[Auth] File path credentials not supported in serverless environment');
-      return null;
-    }
-    
-    // Try one more time with cleaned string (remove newlines but preserve JSON structure)
-    try {
-      let cleaned = credsEnv.trim();
-      // Remove newlines and carriage returns, but preserve spaces within strings
-      // This handles multi-line JSON in .env files
-      cleaned = cleaned.replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' ');
-      // Collapse multiple spaces to single space (but not within quoted strings)
-      cleaned = cleaned.replace(/\s+/g, ' ');
-      
-      if (cleaned.startsWith('{')) {
-        const creds = JSON.parse(cleaned);
-        if (creds.type === 'service_account' && creds.project_id && creds.private_key) {
-          console.log('[Auth] Successfully parsed service account credentials (after cleanup)');
-          return creds;
-        }
-      }
-    } catch (e) {
-      // Final fallback - log detailed error
-      console.error('[Auth] Failed to parse GOOGLE_APPLICATION_CREDENTIALS:', e.message);
-      console.error('[Auth] First 200 chars of value:', credsEnv.substring(0, 200));
-      console.error('[Auth] Make sure GOOGLE_APPLICATION_CREDENTIALS is a valid JSON string on a single line');
-    }
-    
+    let value = raw.trim();
+    // Shell-style outer single quotes are not part of the JSON document.
+    if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+    let credentials = JSON.parse(value);
+    if (typeof credentials === 'string') credentials = JSON.parse(credentials);
+    if (!credentials || credentials.type !== 'service_account' ||
+        !['project_id', 'client_email', 'private_key'].every(field => typeof credentials[field] === 'string' && credentials[field].trim())) return null;
+    return credentials;
+  } catch {
+    console.warn('[Auth] Service account JSON is invalid. Check server configuration.');
     return null;
   }
 }
@@ -118,7 +68,7 @@ export async function initVertexAI(projectId, location = 'us-central1') {
     
     return { vertexAI, fallback: false };
   } catch (error) {
-    console.warn('[Auth] Vertex AI initialization failed:', error.message);
+    console.warn('[Auth] Vertex AI initialization failed.');
     console.log('[Auth] Falling back to Google AI SDK (API key)...');
     return { vertexAI: null, fallback: true };
   }
@@ -142,7 +92,7 @@ export async function initGoogleAI() {
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     return new GoogleGenerativeAI(apiKey);
   } catch (error) {
-    console.warn('[Auth] Failed to initialize Google AI SDK:', error.message);
+    console.warn('[Auth] Failed to initialize Google AI SDK.');
     return null;
   }
 }

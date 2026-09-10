@@ -1,3 +1,4 @@
+import { requestAI } from '../utils/ai.js';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -45,36 +46,27 @@ export default function SettingsTab() {
     const file = event.target.files?.[0];
     if (!file || !user || !supabase) return;
 
-    console.log('[Settings] Starting photo upload...', {
-      size: file.size,
-      type: file.type,
-      name: file.name
-    });
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      showToast('Choose a JPEG, PNG or WebP photo no larger than 2 MiB.', 'error');
+      return;
+    }
 
     setUploading(true);
 
     try {
       // 1. Convert file to base64 for validation
       const reader = new FileReader();
-      const base64Promise = new Promise((resolve) => {
+      const base64Promise = new Promise((resolve, reject) => {
         reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read the photo.'));
+        reader.onabort = () => reject(new Error('Photo reading was cancelled.'));
         reader.readAsDataURL(file);
       });
       const base64Image = await base64Promise;
 
       // 2. Validate with AI
       console.log('[Settings] Validating photo with AI...');
-      const validateRes = await fetch(`${VERCEL_API_URL}/api/ai/validate-photo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image })
-      });
-
-      if (!validateRes.ok) {
-        throw new Error('AI Validation service unavailable');
-      }
-
-      const validation = await validateRes.json();
+      const validation = await requestAI(supabase, 'validate-photo', { image: base64Image });
       if (!validation.valid) {
         console.warn('[Settings] Photo rejected by AI:', validation.reasoning);
         showToast(`Rejected: ${validation.reasoning}`, 'error');

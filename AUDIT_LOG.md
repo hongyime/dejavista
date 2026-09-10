@@ -1,5 +1,16 @@
 # AUDIT_LOG.md
 
+## 2026-09-10 — AI request protection
+
+Confirmed unauthenticated caller-controlled photo ownership, credential-prefix
+logging and missing runtime bindings using source review and isolated fixtures.
+Added verified caller checks, bounded payloads/downloads/provider attempts,
+deadline propagation and authenticated extension requests. Thirty regressions,
+a clean dependency install and extension build pass; desktop/mobile fixture
+workflows cover recommendations, try-on, photo upload and cached restoration.
+Live storage policy metadata was checked without reading user records. Updated
+release bundle and production verification are tracked in the portfolio report.
+
 ## Reconnaissance - 20260524
 
 ### REPO_CONTEXT

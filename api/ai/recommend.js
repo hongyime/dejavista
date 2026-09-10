@@ -1,86 +1,27 @@
-/**
- * @fileoverview Recommend API Handler
- * POST /api/ai/recommend - Get AI-powered product recommendations
- * @module api/ai/recommend
- * @param {Object} req - Next.js request (POST with userId, currentItem, historyItems)
- * @param {Object} res - Next.js response
- * @returns {RecommendResponse|ApiError} Recommendation result or error
- * @requires GEMINI_API_KEY or GOOGLE_APPLICATION_CREDENTIALS
- * @see {@link module:api/types.RecommendRequest}
- * @see {@link module:api/types.RecommendResponse}
- */
+import { protectAI, RequestError } from '../../lib/ai/request.js';
+import { validateRecommendation } from '../../lib/ai/inputs.js';
+import { generate, parseAIObject } from '../../lib/ai/generate.js';
 
-import { createClient } from '@supabase/supabase-js';
-import { getVertexAIAuthOptions, initGoogleAI } from './utils/auth.js';
-import { recommendLimiter, createRateLimitHeaders } from './utils/rate-limit.js';
+function itemFields(item) {
+  return {
+    id: item.id,
+    title: String(item.title || item.meta?.title || 'Unknown').slice(0, 100),
+    brand: String(item.brand || item.meta?.brand || 'Unknown').slice(0, 50),
+    description: String(item.description || item.meta?.description || 'N/A').slice(0, 200),
+    price: String(item.price || item.meta?.price || 'Unknown').slice(0, 50),
+  };
+}
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-export default async function handler(req, res) {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { currentItem, historyItems, userId } = req.body;
-
-  if (!currentItem || !historyItems || !userId) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  // Rate limiting check
-  const rateLimitResult = recommendLimiter(userId);
-  if (rateLimitResult) {
-    Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
-      res.setHeader(key, value);
-    });
-    return res.status(429).json(rateLimitResult.body);
-  }
-
-  const hasVertexAICreds = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-  console.log('[Recommend] Credentials check:', {
-    hasGeminiKey: !!geminiApiKey,
-    hasVertexCreds: hasVertexAICreds,
-    geminiKeyPrefix: geminiApiKey ? '****' + geminiApiKey.slice(-4) : 'missing'
-  });
-
-  if (!geminiApiKey) {
-    if (hasVertexAICreds) {
-      console.warn('[Recommend] GEMINI_API_KEY not set, falling back to Vertex AI');
-    } else {
-      return res.status(500).json({
-        error: 'GEMINI_API_KEY not configured',
-        details: 'Please set GEMINI_API_KEY in Vercel environment variables'
-      });
-    }
-  }
-
-  try {
-    console.log('[Recommend] Processing recommendation for user:', userId);
-    console.log('[Recommend] History items count:', historyItems.length);
-
-    const sanitizedHistory = historyItems.slice(0, 40).map(item => ({
-      id: item.id,
-      title: (item.meta?.title || 'Unknown').substring(0, 100),
-      brand: (item.meta?.brand || 'Unknown').substring(0, 50),
-      description: (item.meta?.description || 'N/A').substring(0, 200)
-    }));
-
+export default protectAI(async (req, res, { budget }) => {
+    const historyItems = req.body.historyItems;
+    const currentItem = itemFields(req.body.currentItem);
+    const sanitizedHistory = historyItems.map(itemFields);
     const prompt = `You are an expert high-end fashion stylist. Your goal is to curate exactly ONE recommendation from the user's "Fashion Memory" (History) that perfectly complements the item they are currently browsing.
 
 Current Item:
 - Title: ${(currentItem.title || currentItem.meta?.title || 'Unknown').substring(0, 100)}
 - Brand: ${(currentItem.brand || currentItem.meta?.brand || 'Unknown').substring(0, 50)}
-- Price: ${currentItem.price || 'Unknown'}
+- Price: ${String(currentItem.price || 'Unknown').slice(0, 50)}
 - Description: ${(currentItem.description || currentItem.meta?.description || 'N/A').substring(0, 200)}
 
 User's Fashion Memory (History):
@@ -102,218 +43,15 @@ Respond in JSON format ONLY:
 
 If nothing fits or history is empty, set recommendedItemId to null.`;
 
-    let responseText = '';
-    const modelAttempts = []; // Structured logging for monitoring
-
-    if (geminiApiKey) {
-      try {
-        console.log('[Recommend] Using Google AI SDK...');
-        const googleAI = await initGoogleAI();
-        if (!googleAI) {
-          console.error('[Recommend] Google AI SDK returned null');
-          throw new Error('Google AI SDK initialization returned null');
-        }
-        const modelCandidates = [
-          'gemini-2.5-flash',
-          'gemini-flash-latest',
-          'gemini-1.5-flash',
-        ];
-        let lastError = null;
-        let selectedModel = null;
-
-        for (const modelId of modelCandidates) {
-          const attemptStart = Date.now();
-          try {
-            console.log(`[Recommend] ATTEMPT_START model:${modelId}`);
-            const model = googleAI.getGenerativeModel({ model: modelId });
-            const result = await model.generateContent(prompt);
-            responseText = result.response.text();
-            const attemptDuration = Date.now() - attemptStart;
-
-            selectedModel = modelId;
-            modelAttempts.push({
-              modelId,
-              status: 'success',
-              duration: attemptDuration,
-              responseLength: responseText.length,
-              timestamp: new Date().toISOString()
-            });
-
-            console.log(`[Recommend] ATTEMPT_SUCCESS model:${modelId} duration:${attemptDuration}ms`);
-            lastError = null;
-            break;
-          } catch (modelError) {
-            const attemptDuration = Date.now() - attemptStart;
-            lastError = modelError;
-            const message = modelError?.message || String(modelError);
-            const lower = message.toLowerCase();
-            const isCapacityIssue =
-              message.includes('503') || lower.includes('high demand') ||
-              lower.includes('overloaded') || lower.includes('temporarily unavailable');
-            const isNotFound =
-              message.includes('404') || lower.includes('not found') ||
-              lower.includes('is not found for api version');
-
-            modelAttempts.push({
-              modelId,
-              status: 'failed',
-              duration: attemptDuration,
-              errorType: isCapacityIssue ? 'capacity' : isNotFound ? 'not_found' : 'other',
-              errorMessage: message.substring(0, 200),
-              timestamp: new Date().toISOString()
-            });
-
-            console.warn(`[Recommend] ATTEMPT_FAILED model:${modelId} duration:${attemptDuration}ms error:${message.substring(0, 80)}`);
-
-            if (!(isCapacityIssue || isNotFound)) break;
-          }
-        }
-
-        // Log structured summary for dashboards/monitoring
-        console.log('[Recommend] MODEL_ATTEMPT_SUMMARY:', JSON.stringify({
-          attempts: modelAttempts,
-          selectedModel,
-          totalAttempts: modelAttempts.length,
-          successfulAttempts: modelAttempts.filter(a => a.status === 'success').length
-        }));
-
-        if (!responseText) {
-          throw new Error(lastError?.message || 'All Gemini models failed');
-        }
-      } catch (googleAIError) {
-        console.error('[Recommend] Google AI SDK failed:', googleAIError.message);
-        console.error('[Recommend] MODEL_ATTEMPTS:', JSON.stringify(modelAttempts));
-        if (!hasVertexAICreds) {
-          return res.status(200).json({
-            recommendation: null,
-            recommendations: [],
-            matchedItemId: null,
-            reasoning: 'AI temporarily unavailable.'
-          });
-        }
-        console.log('[Recommend] Falling back to Vertex AI...');
-      }
-    } else {
-      console.warn('[Recommend] GEMINI_API_KEY not set, will try Vertex AI');
-    }
-
-    if (!responseText && hasVertexAICreds) {
-      const vertexStart = Date.now();
-      try {
-        console.log('[Recommend] ATTEMPT_START model:vertex-ai');
-        const project = process.env.GOOGLE_CLOUD_PROJECT_ID;
-        const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-
-        if (!project) {
-          throw new Error('GOOGLE_CLOUD_PROJECT_ID missing');
-        }
-
-        const authOptions = getVertexAIAuthOptions();
-
-        if (!authOptions.credentials) {
-          throw new Error('Vertex AI credentials not properly configured');
-        }
-
-        const { VertexAI } = await import('@google-cloud/vertexai');
-        const vertexAI = new VertexAI({ project, location, ...authOptions });
-        const model = vertexAI.getGenerativeModel({
-          model: 'gemini-1.5-flash-001',
-          generationConfig: {
-            maxOutputTokens: 256,
-            temperature: 0.7,
-          }
-        });
-
-        const result_vertex = await model.generateContent({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }]
-        });
-
-        const v_response = await result_vertex.response;
-        responseText = v_response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const vertexDuration = Date.now() - vertexStart;
-
-        modelAttempts.push({
-          modelId: 'vertex-ai',
-          status: 'success',
-          duration: vertexDuration,
-          responseLength: responseText.length,
-          timestamp: new Date().toISOString()
-        });
-
-        console.log(`[Recommend] ATTEMPT_SUCCESS model:vertex-ai duration:${vertexDuration}ms`);
-      } catch (vertexError) {
-        const vertexDuration = Date.now() - vertexStart;
-        console.error('[Recommend] Vertex AI failed:', vertexError.message);
-
-        modelAttempts.push({
-          modelId: 'vertex-ai',
-          status: 'failed',
-          duration: vertexDuration,
-          errorMessage: vertexError.message.substring(0, 200),
-          timestamp: new Date().toISOString()
-        });
-
-        if (!responseText) {
-          throw new Error(`AI service unavailable: ${vertexError.message}`);
-        }
-      }
-    }
-
-    // Final summary log
-    console.log('[Recommend] FINAL_ATTEMPT_SUMMARY:', JSON.stringify({
-      attempts: modelAttempts,
-      totalAttempts: modelAttempts.length,
-      finalStatus: responseText ? 'success' : 'failed'
-    }));
-
-    if (!responseText) {
-      throw new Error('No response from AI service');
-    }
-
-    if (!responseText || responseText.trim() === '') {
-      console.log('[Recommend] Empty response from AI service');
-      return res.status(200).json({ recommendation: null });
-    }
-
-    // Defensive JSON Extraction
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      responseText = jsonMatch[0];
-    }
-
-    let result = { recommendedItemId: null, reasoning: 'No match found.' };
-    try {
-      result = JSON.parse(responseText.trim());
-    } catch (parseError) {
-      console.error('[Recommend] JSON Parse Error:', parseError);
-      const cleaned = responseText.replace(/```json\n?|```/g, '').trim();
-      try { result = JSON.parse(cleaned); } catch (e2) { }
-    }
-
-    let finalRecommendation = null;
-    if (result.recommendedItemId && result.recommendedItemId !== "null") {
-      const item = historyItems.find(h => String(h.id) === String(result.recommendedItemId));
-      if (item) {
-        finalRecommendation = {
-          ...item,
-          reasoning: result.reasoning?.substring(0, 100) || 'Perfect pair!'
-        };
-      }
-    }
-
-    console.log('[Recommend] Recommendation generated:', finalRecommendation ? finalRecommendation.meta?.title : 'None');
-
-    return res.status(200).json({
-      recommendation: finalRecommendation,
-      recommendations: finalRecommendation ? [finalRecommendation] : [],
-      matchedItemId: finalRecommendation?.id || null,
-      reasoning: finalRecommendation?.reasoning || 'No matches found.'
-    });
-  } catch (error) {
-    console.error('[Recommend] Fatal Error:', error);
-    return res.status(500).json({
-      error: 'Failed to get recommendation',
-      details: error.message
-    });
-  }
-}
+    const response = await generate({ budget, contents: prompt, config: {
+      responseMimeType: 'application/json', maxOutputTokens: 512,
+      thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7,
+    } });
+    const result = parseAIObject(response);
+    if (result.recommendedItemId != null && typeof result.recommendedItemId !== 'string') throw new RequestError(502, 'AI returned an invalid recommendation.');
+    const item = result.recommendedItemId ? historyItems.find(item => String(item.id) === result.recommendedItemId) : null;
+    const reasoning = typeof result.reasoning === 'string' ? result.reasoning.slice(0, 100) : 'Perfect pair!';
+    const recommendation = item ? { ...item, reasoning } : null;
+    return res.status(200).json({ recommendation, recommendations: recommendation ? [recommendation] : [],
+      matchedItemId: recommendation?.id || null, reasoning: recommendation?.reasoning || 'No matches found.' });
+}, { endpoint: 'recommend', validate: validateRecommendation });

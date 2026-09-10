@@ -1,18 +1,19 @@
-// Simple in-memory rate limiter for Vercel serverless functions
-// Note: In production, use Redis or a distributed rate limiter
+// Per-instance burst protection, not a distributed/global spending quota.
+// Store only bounded counters; no tokens, images or application records.
 
 const rateLimitStore = new Map();
+const MAX_ENTRIES = 5000;
 
 // Cleanup old entries periodically (every 5 minutes)
 const CLEANUP_INTERVAL = 5 * 60 * 1000;
 let lastCleanup = Date.now();
 
-function cleanup() {
+function cleanup(force = false) {
   const now = Date.now();
-  if (now - lastCleanup < CLEANUP_INTERVAL) return;
+  if (!force && now - lastCleanup < CLEANUP_INTERVAL) return;
   
   for (const [key, data] of rateLimitStore.entries()) {
-    if (now - data.windowStart > data.windowMs) {
+    if (now - data.windowStart >= data.windowMs) {
       rateLimitStore.delete(key);
     }
   }
@@ -27,7 +28,7 @@ function cleanup() {
  * @param {number} options.windowMs - Window size in milliseconds
  * @returns {Object} - { allowed: boolean, remaining: number, retryAfter: number }
  */
-function checkRateLimit(identifier, options = {}) {
+export function checkRateLimit(identifier, options = {}) {
   const {
     maxRequests = 10,
     windowMs = 60000 // 1 minute default
@@ -41,7 +42,13 @@ function checkRateLimit(identifier, options = {}) {
   
   let data = rateLimitStore.get(key);
   
-  if (!data || now - data.windowStart > windowMs) {
+  if (!data || now - data.windowStart >= windowMs) {
+    if (!data && rateLimitStore.size >= MAX_ENTRIES) {
+      cleanup(true);
+      if (rateLimitStore.size >= MAX_ENTRIES) {
+        return { allowed: false, remaining: 0, retryAfter: 60, limit: maxRequests, reset: now + 60000 };
+      }
+    }
     // Start new window
     data = {
       windowStart: now,
@@ -52,7 +59,7 @@ function checkRateLimit(identifier, options = {}) {
     rateLimitStore.set(key, data);
   }
   
-  data.count++;
+  data.count = Math.min(maxRequests + 1, data.count + 1);
   
   const remaining = Math.max(0, maxRequests - data.count);
   const windowReset = data.windowStart + windowMs;
@@ -82,7 +89,7 @@ function checkRateLimit(identifier, options = {}) {
  * @param {Object} result - Result from checkRateLimit
  * @returns {Object} - Headers object
  */
-function createRateLimitHeaders(result) {
+export function createRateLimitHeaders(result) {
   return {
     'X-RateLimit-Limit': result.limit.toString(),
     'X-RateLimit-Remaining': result.remaining.toString(),
@@ -97,7 +104,7 @@ function createRateLimitHeaders(result) {
  * @param {Object} options - Rate limit options
  * @returns {Object|null} - Error response object or null if allowed
  */
-function rateLimitResponse(identifier, options = {}) {
+export function rateLimitResponse(identifier, options = {}) {
   const result = checkRateLimit(identifier, options);
   
   if (!result.allowed) {
@@ -116,26 +123,17 @@ function rateLimitResponse(identifier, options = {}) {
 }
 
 // Pre-configured rate limiters for common endpoints
-const recommendLimiter = (userId) => rateLimitResponse(userId, {
+export const recommendLimiter = (userId) => rateLimitResponse(`recommend:${userId}`, {
   maxRequests: 10,
   windowMs: 60000
 });
 
-const visualizeLimiter = (userId) => rateLimitResponse(userId, {
+export const visualizeLimiter = (userId) => rateLimitResponse(`visualize:${userId}`, {
   maxRequests: 5,
   windowMs: 60000
 });
 
-const validatePhotoLimiter = (userId) => rateLimitResponse(userId, {
+export const validatePhotoLimiter = (userId) => rateLimitResponse(`validate-photo:${userId}`, {
   maxRequests: 10,
   windowMs: 60000
 });
-
-module.exports = {
-  checkRateLimit,
-  createRateLimitHeaders,
-  rateLimitResponse,
-  recommendLimiter,
-  visualizeLimiter,
-  validatePhotoLimiter
-};

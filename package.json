@@ -1,10 +1,11 @@
 {
   "name": "dejavista",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "node build-wrapper.js",
+    "test": "node --experimental-test-module-mocks --test tests/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

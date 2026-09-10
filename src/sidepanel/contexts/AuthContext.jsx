@@ -66,6 +66,8 @@ export function AuthProvider({ children }) {
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          // Chrome's identity popup owns navigation, not the extension panel.
+          skipBrowserRedirect: true,
         },
       });
 
@@ -89,7 +91,7 @@ export function AuthProvider({ children }) {
             return;
           }
 
-          console.log('[DejaVista] Parsing redirect URL:', redirectUrl);
+          // The redirect can contain access/refresh tokens. Never log it.
           const url = new URL(redirectUrl);
 
           // 1. Check for Authorization Code (PKCE Flow)
@@ -102,7 +104,7 @@ export function AuthProvider({ children }) {
               console.error('[DejaVista] ✗ Code exchange error:', error);
               showToast('Auth error: ' + error.message, 'error');
             } else {
-              console.log('[DejaVista] ✓ Successfully exchanged code for session:', data.session?.user?.email);
+              console.log('[DejaVista] Successfully exchanged code for session.');
               showToast('Signed in successfully', 'success');
               // Ensure we persist/update state
               setUser(data.session?.user ?? null);
@@ -141,7 +143,7 @@ export function AuthProvider({ children }) {
               console.error('[DejaVista] ✗ Session error:', error);
               showToast('Session error: ' + error.message, 'error');
             } else {
-              console.log('[DejaVista] ✓ Successfully signed in:', data.session?.user?.email);
+              console.log('[DejaVista] Successfully signed in.');
 
               // CRITICAL: Force state update immediately
               setUser(data.session?.user ?? null);
@@ -152,7 +154,7 @@ export function AuthProvider({ children }) {
               showToast('Signed in successfully', 'success');
             }
           } else {
-            console.error('[DejaVista] ✗ No tokens/code in redirect URL:', redirectUrl);
+            console.error('[DejaVista] No tokens/code in authentication response.');
             showToast('Authentication failed: No tokens/code found', 'error');
           }
         }

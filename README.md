@@ -4,14 +4,36 @@ Chrome Extension that passively tracks viewed clothing items and uses GenAI to r
 
 ## 🚀 Quick Load (For Testers)
 
-Already have the repo? Just load the extension:
+AI endpoints now require your signed-in session. Pull the current release and
+rebuild/reload an existing unpacked extension so it sends that session:
 
-1. Open Chrome → `chrome://extensions/`
-2. Enable **Developer mode** (top right)
-3. Click **Load unpacked**
-4. Select the `dist` folder
+1. Run `npm ci` and `npm run build` with your existing frontend configuration.
+2. Open Chrome → `chrome://extensions/` and enable **Developer mode**.
+3. Click **Reload** for an existing installation, or **Load unpacked** and select
+   the `dist` folder for a new installation.
+4. Sign in if prompted. Keep the extension ID stable to preserve OAuth redirects.
 
-That's it! The extension is ready to use.
+The Vercel deployment hosts the landing page and API; it cannot update an
+already installed unpacked Chrome extension automatically.
+
+## AI request protection
+
+The server verifies Supabase access tokens and uses that identity for photo
+access. Recommendations accept at most 40 history items, try-on accepts up to
+four items, and photo validation supports JPEG, PNG and WebP up to 2 MiB. Requests
+have a 25-second server budget and a 35-second client deadline. Provider transport
+retries are disabled; a missing Gemini model permits one alias attempt. Capacity,
+quota and timeout failures do not launch more paid generations or silently
+approve an unvalidated photo. The existing reference-photo simulation remains
+explicit when no image provider is configured.
+
+Burst limits are 10 recommendations, 10 photo validations and five try-ons per
+verified user per minute **per server instance**. They are not a global spending
+cap. Aborting a request does not reverse provider work or charges already incurred.
+No retention policy, database migration or new storage service is introduced.
+
+Run `npm test` for synthetic Auth, Storage, image transport, SDK and client
+regressions. Never use real user photos or paid generations as test fixtures.
 
 ---
 
