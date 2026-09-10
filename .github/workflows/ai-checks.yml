@@ -1,0 +1,33 @@
+name: AI request protection
+on:
+  push:
+    branches: [main, 'maintenance/**']
+    paths: ['api/**', 'lib/**', 'src/**', 'tests/**', 'package*.json', 'build*.js', 'vite.config.js', 'vercel.json', '.github/workflows/ai-checks.yml']
+  pull_request:
+    paths: ['api/**', 'lib/**', 'src/**', 'tests/**', 'package*.json', 'build*.js', 'vite.config.js', 'vercel.json', '.github/workflows/ai-checks.yml']
+permissions:
+  contents: read
+concurrency:
+  group: ai-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test
+      - name: Build extension with fixture configuration
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://fixture.example.invalid
+          VITE_SUPABASE_ANON_KEY: fixture-publishable-key
+          VITE_OAUTH_CLIENT_ID: fixture.apps.googleusercontent.com
+      - name: Build Vercel landing page
+        run: npm run build
+        env:
+          VERCEL: '1'

@@ -1,3 +1,5 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { requestAI } from '../utils/ai.js';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { VERCEL_API_URL } from '../utils/env';
@@ -148,10 +150,11 @@ export default function MirrorTab() {
         const data = await chrome.storage.local.get(cacheKey);
         const cached = data[cacheKey];
 
-        if (!cached?.poses?.length) {
+        if (!Array.isArray(cached?.poses) || !cached.poses.length || (cached.expiresAt && cached.expiresAt <= Date.now())) {
           return;
         }
 
+        const initialPose = cached.poses.find(pose => pose.id === cached.selectedPoseId) || cached.poses[0];
         setPoses(cached.poses);
         setSelectedPose(initialPose);
         setTryOnFromCache(true);
@@ -259,35 +262,15 @@ export default function MirrorTab() {
     setRecommendation(null);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-      const response = await fetch(`${VERCEL_API_URL}/api/ai/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentItem,
-          historyItems,
-          userId: user.id,
-        }),
-        signal: controller.signal,
+      const data = await requestAI(supabase, 'recommend', {
+        currentItem, historyItems: historyItems.slice(0, 40), userId: user.id,
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('[Mirror] Recommendation API error:', text);
-        return;
-      }
-
-      const data = await response.json();
       setRecommendation(data);
     } catch (error) {
       if (error.name === 'AbortError') {
         console.warn('[Mirror] Recommendation request timed out');
       } else {
-        console.error('[Mirror] Error getting recommendation:', error);
+        showToast(error.message || 'Could not load a recommendation.', 'error');
       }
     } finally {
       setLoadingRecommendation(false);
@@ -374,25 +357,7 @@ export default function MirrorTab() {
         },
       }));
 
-      const response = await fetch(`${VERCEL_API_URL}/api/ai/visualize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          items: normalizedItems,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(
-          errorData.details ||
-            errorData.error ||
-            `Failed to generate try-on image (${response.status})`
-        );
-      }
-
-      const data = await response.json();
+      const data = await requestAI(supabase, 'visualize', { userId: user.id, items: normalizedItems });
       const newPoses = Array.isArray(data.poses)
         ? data.poses.filter((pose) => pose?.imageUrl)
         : [];
@@ -421,6 +386,7 @@ export default function MirrorTab() {
               poses: newPoses,
               selectedPoseId: newPoses[0]?.id || null,
               savedAt: Date.now(),
+              expiresAt: data.expiresAt || null,
             },
           });
         }
