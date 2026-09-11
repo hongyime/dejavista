@@ -18,7 +18,7 @@ The original version of DejaVista — a Chrome extension that passively tracks c
 ## Tech Stack
 - **Runtime**: Chrome Extension (Manifest V3)
 - **Language**: TypeScript / React
-- **Build**: Vite + `vite-plugin-web-extension`
+- **Build**: Vite with explicit extension entry points and `build-extension.js`
 - **AI**: Google GenAI, Google Generative AI
 - **Database**: Supabase (PostgreSQL + Storage + Auth)
 - **API**: Vercel serverless functions (Node.js)
