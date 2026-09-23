@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.js"
+      - "**.mjs"
+      - "**.jsx"
+      - "**.ts"
+      - "**.tsx"
+      - "tests/**"
+      - "lib/**"
+      - "api/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.js"
+      - "**.mjs"
+      - "**.jsx"
+      - "**.ts"
+      - "**.tsx"
+      - "tests/**"
+      - "lib/**"
+      - "api/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
