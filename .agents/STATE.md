@@ -1,3 +1,11 @@
+## Credential cleanup and maintenance - 2026-09-27
+
+A privileged credential embedded in SUPABASE_SETUP.md was removed by a narrowly scoped history rewrite. The rewrite preserves unrelated file contents, commit messages, identities and parent topology; rewritten commits lose their old signatures. Optional personal security-contact text was also replaced with private reporting guidance.
+
+Credential revocation or rotation remains required and is separate from history cleanup. GitHub pull-request refs, cached commit views and other clones may still retain old history. Do not merge old history back into this repository. Follow GitHub sensitive-data-removal guidance for any remaining copies.
+
+The previous baseline below is historical and does not establish that the repository is free of credentials.
+
 # STATE.md — dejavista
 
 Updated: 2026-09-16

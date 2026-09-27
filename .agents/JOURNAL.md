@@ -14,3 +14,5 @@ Append-only. One dated entry per session.
 - No code fixes required. Vercel hold active until 2026-09-16 07:14 UTC; no merges to main.
 - Created .agents/STATE.md and this JOURNAL.md (first entries).
 - Wrote audit_results baseline JSON.
+
+- 2026-09-27: Applied targeted credential-history cleanup and private security-reporting guidance. Preserve unrelated history and local work; require separate credential rotation and review of GitHub PR/cached refs and other clones.
